@@ -61,9 +61,13 @@ class DefaultPlaceMatcher(PlaceMatcher):
                 ),
             )
 
-        # Enrich with details when available
-        details = await self._google.get_place_details(candidate.google_place_id)
-        google = details or candidate
+        # Prefer Find Place payload when it already has scoring fields to avoid
+        # a billable Place Details request. Fetch details only when needed.
+        google = candidate
+        if candidate.rating is None or candidate.user_rating_count is None:
+            details = await self._google.get_place_details(candidate.google_place_id)
+            if details is not None:
+                google = details
 
         return PlaceMatchResult(
             confidence=confidence,
