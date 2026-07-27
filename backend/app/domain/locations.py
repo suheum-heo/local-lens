@@ -16,6 +16,9 @@ from app.domain.enums import City, LocationMode
 
 DEFAULT_SEARCH_RADIUS_M = 1000
 
+# Allowed radii for station-based searches (MVP UI options).
+STATION_RADIUS_OPTIONS_M: tuple[int, ...] = (500, 1000, 1500, 2000)
+
 
 class StationLocation(BaseModel):
     """Subway station search anchor."""
@@ -30,9 +33,11 @@ class StationLocation(BaseModel):
 
     @field_validator("radius_m")
     @classmethod
-    def radius_positive(cls, v: int) -> int:
-        if v <= 0:
-            raise ValueError("radius_m must be positive")
+    def radius_allowed(cls, v: int) -> int:
+        if v not in STATION_RADIUS_OPTIONS_M:
+            raise ValueError(
+                f"radius_m must be one of {list(STATION_RADIUS_OPTIONS_M)}"
+            )
         return v
 
 

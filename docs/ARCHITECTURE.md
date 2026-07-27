@@ -50,10 +50,15 @@ SearchRequest
 
 Users select **subway stations** or **neighborhoods**. Both normalize to `SearchArea`:
 
-- `latitude`, `longitude`, `radius_m` (MVP default **1000 m**)
+- `latitude`, `longitude`, `radius_m`
+  - Stations: UI options **500 / 1000 / 1500 / 2000 m** (default 1000)
+  - Neighborhoods: default **1000 m** in the MVP UI
 - `source_mode`, `source_id`, `label`, `city`
 
-Restaurant discovery only receives `SearchArea`. Multi-select is first-class: one search may include several stations or several neighborhoods.
+Restaurant discovery only receives `SearchArea`. Multi-select is first-class: one search may include several stations or several neighborhoods. Overlaps are deduplicated by Kakao place id.
+
+The frontend keeps search configuration in the URL (`city`, `mode`, `locs`, `radius`, `q`, `run`) so refresh/share preserves the selection. Result cards and the map share selection state.
+
 
 ## Provider switching
 

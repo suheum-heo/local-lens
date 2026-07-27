@@ -61,6 +61,9 @@ Open [http://localhost:3000](http://localhost:3000).
 | Seoul | Station | 강남역 (+ 신논현역) | 삼겹살 |
 | Ulsan | Neighborhood | 삼산동 | 고기 or 분식 |
 
+Station searches support radius chips: **500 m / 1 km / 1.5 km / 2 km** (default 1 km).  
+The UI keeps `city`, `mode`, `locs`, `radius`, `q`, and `run` in the URL so refresh/share preserves the configuration. Result cards and the map share selection.
+
 Mock fixtures include: strong dual-platform data, missing Google match, insufficient Google reviews, and uncertain matching.
 
 ## Live providers

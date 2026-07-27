@@ -7,6 +7,7 @@ from app.domain.enums import (
 )
 from app.domain.locations import (
     DEFAULT_SEARCH_RADIUS_M,
+    STATION_RADIUS_OPTIONS_M,
     NeighborhoodLocation,
     SearchArea,
     SearchRequestLocations,
@@ -25,6 +26,7 @@ __all__ = [
     "City",
     "DataAvailability",
     "DEFAULT_SEARCH_RADIUS_M",
+    "STATION_RADIUS_OPTIONS_M",
     "GooglePlaceData",
     "KakaoPlaceData",
     "LocationMode",

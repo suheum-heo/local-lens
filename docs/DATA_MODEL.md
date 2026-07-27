@@ -10,7 +10,7 @@
 | `station_name` | string | Display name (e.g. 합정역) |
 | `city` | City enum | |
 | `latitude` / `longitude` | float | WGS84 |
-| `radius_m` | int | Default **1000** |
+| `radius_m` | int | Default **1000**; station UI options: **500 / 1000 / 1500 / 2000** |
 
 ### NeighborhoodLocation
 
@@ -32,7 +32,14 @@ Discovery code only sees:
 - `latitude`, `longitude`, `radius_m`
 - `source_mode` (`station` \| `neighborhood`), `source_id`
 
-Multiple areas per search are supported; overlapping results are deduplicated.
+## Search radius (stations)
+
+Station searches accept `radius_m` ∈ `{500, 1000, 1500, 2000}` (default **1000**).
+The same radius is applied to every selected station in one request.
+Neighborhood searches keep the default **1000 m** radius in the MVP UI.
+
+Overlapping station/neighborhood areas continue to dedupe by `kakao_place_id`.
+
 
 ## Restaurant candidate (Kakao)
 
