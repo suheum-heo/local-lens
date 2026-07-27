@@ -1,7 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchLocations, searchRestaurants, toLocationPayload } from "@/lib/api";
+import {
+  CITIES,
+  DEFAULT_RADIUS_M,
+  STATION_RADIUS_OPTIONS_M,
+  formatRadiusLabel,
+  type StationRadiusM,
+} from "@/lib/constants";
+import {
+  parseSearchParams,
+  writeSearchParamsToUrl,
+} from "@/lib/searchState";
 import type {
   City,
   LocationCatalogItem,
@@ -9,49 +20,113 @@ import type {
   SearchResponse,
 } from "@/lib/types";
 import { RestaurantCard } from "./RestaurantCard";
-
-const CITIES: { value: City; label: string }[] = [
-  { value: "seoul", label: "서울" },
-  { value: "ulsan", label: "울산" },
-  { value: "jeonju", label: "전주" },
-  { value: "busan", label: "부산" },
-];
+import { ResultsMapClient } from "./ResultsMapClient";
+import { areasFromSelection } from "@/lib/mapAreas";
 
 export function SearchPage() {
   const [city, setCity] = useState<City>("seoul");
   const [mode, setMode] = useState<LocationMode>("station");
   const [catalog, setCatalog] = useState<LocationCatalogItem[]>([]);
   const [selected, setSelected] = useState<LocationCatalogItem[]>([]);
+  const [radiusM, setRadiusM] = useState<StationRadiusM>(DEFAULT_RADIUS_M);
   const [filter, setFilter] = useState("");
   const [query, setQuery] = useState("삼겹살");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SearchResponse | null>(null);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<
+    string | null
+  >(null);
+  const [hydrated, setHydrated] = useState(false);
+  const pendingLocationIds = useRef<string[] | null>(null);
+  const shouldAutoSearch = useRef(false);
+  const skipNextCatalogClear = useRef(false);
+  const listRef = useRef<HTMLDivElement | null>(null);
 
+  // Restore search config from URL once on mount.
   useEffect(() => {
-    let cancelled = false;
-    setSelected([]);
-    setResult(null);
-    fetchLocations(city, mode)
-      .then((items) => {
-        if (!cancelled) setCatalog(items);
-      })
-      .catch((err: Error) => {
-        if (!cancelled) setError(err.message);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [city, mode]);
+    const parsed = parseSearchParams(new URLSearchParams(window.location.search));
+    if (parsed.city) setCity(parsed.city);
+    if (parsed.mode) {
+      setMode(parsed.mode);
+      skipNextCatalogClear.current = true;
+    } else if (parsed.city === "ulsan" || parsed.city === "jeonju") {
+      setMode("neighborhood");
+      skipNextCatalogClear.current = true;
+    }
+    if (parsed.radiusM) setRadiusM(parsed.radiusM);
+    if (parsed.query) setQuery(parsed.query);
+    if (parsed.locationIds?.length) {
+      pendingLocationIds.current = parsed.locationIds;
+      skipNextCatalogClear.current = true;
+    }
+    shouldAutoSearch.current = Boolean(parsed.run && parsed.locationIds?.length);
+    setHydrated(true);
+  }, []);
 
-  // Prefer neighborhood mode for Ulsan / Jeonju in mock catalog
+  // Prefer neighborhood mode for cities without subway catalog — but not when
+  // restoring a shared URL that already set mode.
   useEffect(() => {
+    if (!hydrated) return;
+    if (skipNextCatalogClear.current) return;
     if (city === "ulsan" || city === "jeonju") {
       setMode("neighborhood");
     } else if (city === "seoul") {
       setMode("station");
     }
-  }, [city]);
+  }, [city, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    let cancelled = false;
+
+    const preserveSelection = skipNextCatalogClear.current;
+    if (!preserveSelection) {
+      setSelected([]);
+      setResult(null);
+      setSelectedRestaurantId(null);
+    }
+
+    fetchLocations(city, mode)
+      .then((items) => {
+        if (cancelled) return;
+        setCatalog(items);
+        const pending = pendingLocationIds.current;
+        if (pending?.length) {
+          const restored = items.filter((item) => pending.includes(item.id));
+          setSelected(restored);
+          pendingLocationIds.current = null;
+        }
+        skipNextCatalogClear.current = false;
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setError(err.message);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [city, mode, hydrated]);
+
+  const syncUrl = useCallback(
+    (run = false) => {
+      writeSearchParamsToUrl({
+        city,
+        mode,
+        locationIds: selected.map((s) => s.id),
+        radiusM,
+        query,
+        run,
+      });
+    },
+    [city, mode, selected, radiusM, query],
+  );
+
+  // Keep URL in sync as the form changes (without forcing a search).
+  useEffect(() => {
+    if (!hydrated) return;
+    syncUrl(Boolean(result));
+  }, [hydrated, syncUrl, result]);
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -63,6 +138,11 @@ export function SearchPage() {
     );
   }, [catalog, filter]);
 
+  const mapAreas = useMemo(
+    () => areasFromSelection(selected, radiusM, mode),
+    [selected, radiusM, mode],
+  );
+
   function toggleLocation(item: LocationCatalogItem) {
     setSelected((prev) => {
       if (prev.some((s) => s.id === item.id)) {
@@ -70,13 +150,14 @@ export function SearchPage() {
       }
       return [...prev, item];
     });
+    setFilter("");
   }
 
   function removeLocation(id: string) {
     setSelected((prev) => prev.filter((s) => s.id !== id));
   }
 
-  async function onSearch() {
+  const runSearch = useCallback(async () => {
     setError(null);
     if (selected.length === 0) {
       setError("검색할 위치를 하나 이상 선택하세요.");
@@ -87,24 +168,49 @@ export function SearchPage() {
       return;
     }
     setLoading(true);
+    setSelectedRestaurantId(null);
     try {
       const data = await searchRestaurants({
         city,
         mode,
-        locations: selected.map(toLocationPayload),
+        locations: selected.map((item) =>
+          toLocationPayload(item, mode === "station" ? radiusM : undefined),
+        ),
         query: query.trim(),
       });
       setResult(data);
+      writeSearchParamsToUrl({
+        city,
+        mode,
+        locationIds: selected.map((s) => s.id),
+        radiusM,
+        query,
+        run: true,
+      });
     } catch (err) {
       setResult(null);
       setError(err instanceof Error ? err.message : "Search failed");
     } finally {
       setLoading(false);
     }
+  }, [city, mode, selected, radiusM, query]);
+
+  // Auto-run when landing on a shareable URL with run=1.
+  useEffect(() => {
+    if (!hydrated || !shouldAutoSearch.current) return;
+    if (selected.length === 0) return;
+    shouldAutoSearch.current = false;
+    void runSearch();
+  }, [hydrated, selected, runSearch]);
+
+  function selectRestaurant(restaurantId: string) {
+    setSelectedRestaurantId(restaurantId);
+    const el = document.getElementById(`restaurant-${restaurantId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8 sm:py-12">
+    <div className="mx-auto max-w-3xl px-4 py-8 sm:py-12">
       <header className="mb-8">
         <p className="text-sm font-medium tracking-wide text-leaf">LocalLens</p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
@@ -146,10 +252,70 @@ export function SearchPage() {
           </label>
         </div>
 
+        {mode === "station" ? (
+          <fieldset>
+            <legend className="text-sm text-ink/60">검색 반경</legend>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {STATION_RADIUS_OPTIONS_M.map((r) => {
+                const active = radiusM === r;
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setRadiusM(r)}
+                    className={`border px-3 py-1.5 text-sm transition ${
+                      active
+                        ? "border-leaf bg-leaf text-white"
+                        : "border-ink/15 bg-white text-ink hover:border-leaf/40"
+                    }`}
+                  >
+                    {formatRadiusLabel(r)}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-1.5 text-xs text-ink/45">
+              선택한 모든 역에 동일 반경이 적용됩니다. 기본값 1 km.
+            </p>
+          </fieldset>
+        ) : (
+          <p className="text-xs text-ink/45">
+            동네 검색은 기본 반경 1 km를 사용합니다.
+          </p>
+        )}
+
         <div>
-          <label className="block text-sm text-ink/60">위치 검색</label>
+          <label className="block text-sm text-ink/60">
+            {mode === "station" ? "역 선택" : "동네 선택"}
+          </label>
+
+          {selected.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-2" aria-label="선택된 위치">
+              {selected.map((item) => (
+                <span
+                  key={item.id}
+                  className="inline-flex items-center gap-1 border border-leaf/25 bg-leaf/10 pl-2.5 text-sm text-leaf"
+                >
+                  {item.name}
+                  <button
+                    type="button"
+                    onClick={() => removeLocation(item.id)}
+                    className="px-2 py-1 text-leaf/70 hover:bg-leaf/15 hover:text-leaf"
+                    aria-label={`${item.name} 제거`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-ink/45">
+              아래에서 위치를 골라 여러 곳을 함께 검색할 수 있습니다.
+            </p>
+          )}
+
           <input
-            className="mt-1 w-full border border-ink/15 bg-white px-3 py-2 text-ink outline-none focus:border-leaf"
+            className="mt-2 w-full border border-ink/15 bg-white px-3 py-2 text-ink outline-none focus:border-leaf"
             placeholder={
               mode === "station" ? "역 이름 검색…" : "동네 이름 검색…"
             }
@@ -174,9 +340,9 @@ export function SearchPage() {
                       }`}
                     >
                       <span>{item.name}</span>
-                      {item.name_en ? (
-                        <span className="text-xs text-ink/40">{item.name_en}</span>
-                      ) : null}
+                      <span className="text-xs text-ink/40">
+                        {active ? "선택됨" : item.name_en}
+                      </span>
                     </button>
                   </li>
                 );
@@ -184,24 +350,6 @@ export function SearchPage() {
             )}
           </ul>
         </div>
-
-        {selected.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {selected.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => removeLocation(item.id)}
-                className="inline-flex items-center gap-1.5 border border-ink/15 bg-mist/50 px-2.5 py-1 text-sm text-ink"
-              >
-                {item.name}
-                <span className="text-ink/40" aria-hidden>
-                  ×
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : null}
 
         <label className="block text-sm">
           <span className="text-ink/60">검색어 (카테고리 / 음식)</span>
@@ -211,14 +359,14 @@ export function SearchPage() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="예: 삼겹살"
             onKeyDown={(e) => {
-              if (e.key === "Enter") void onSearch();
+              if (e.key === "Enter") void runSearch();
             }}
           />
         </label>
 
         <button
           type="button"
-          onClick={() => void onSearch()}
+          onClick={() => void runSearch()}
           disabled={loading}
           className="w-full bg-leaf px-4 py-2.5 text-sm font-medium text-white transition hover:bg-leaf/90 disabled:opacity-60 sm:w-auto"
         >
@@ -241,6 +389,7 @@ export function SearchPage() {
             <p className="text-xs text-ink/40">
               provider: {result.meta.provider_mode} · areas:{" "}
               {result.meta.area_count} · candidates: {result.meta.candidate_count}
+              {mode === "station" ? ` · radius: ${formatRadiusLabel(radiusM)}` : ""}
             </p>
           </div>
 
@@ -252,17 +401,48 @@ export function SearchPage() {
             </ul>
           ) : null}
 
+          {mapAreas.length > 0 ? (
+            <div className="mb-6">
+              <ResultsMapClient
+                areas={mapAreas}
+                restaurants={result.results}
+                selectedRestaurantId={selectedRestaurantId}
+                onSelectRestaurant={selectRestaurant}
+              />
+              <p className="mt-2 text-xs text-ink/45">
+                지도를 탭하면 해당 식당 카드가 강조되고, 카드를 누르면 마커로
+                이동합니다.
+              </p>
+            </div>
+          ) : null}
+
           {result.results.length === 0 ? (
             <p className="text-sm text-ink/55">
-              선택한 영역에서 식당을 찾지 못했습니다. 위치나 검색어를 바꿔 보세요.
+              선택한 영역에서 식당을 찾지 못했습니다. 반경·위치·검색어를 바꿔
+              보세요.
             </p>
           ) : (
-            <div>
+            <div ref={listRef}>
               {result.results.map((r) => (
-                <RestaurantCard key={r.restaurant_id} restaurant={r} />
+                <RestaurantCard
+                  key={r.restaurant_id}
+                  restaurant={r}
+                  selected={r.restaurant_id === selectedRestaurantId}
+                  onSelect={selectRestaurant}
+                />
               ))}
             </div>
           )}
+        </section>
+      ) : selected.length > 0 ? (
+        <section className="mt-8 border-t border-ink/10 pt-6">
+          <p className="mb-2 text-sm text-ink/55">선택한 검색 영역 미리보기</p>
+          <ResultsMapClient
+            areas={mapAreas}
+            restaurants={[]}
+            selectedRestaurantId={null}
+            onSelectRestaurant={() => undefined}
+          />
         </section>
       ) : null}
     </div>

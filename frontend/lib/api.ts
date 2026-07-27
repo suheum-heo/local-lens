@@ -42,6 +42,7 @@ export async function searchRestaurants(body: {
 
 export function toLocationPayload(
   item: LocationCatalogItem,
+  radiusM: number = item.default_radius_m,
 ): LocationPayload {
   if (item.mode === "station") {
     return {
@@ -51,7 +52,7 @@ export function toLocationPayload(
       city: item.city,
       latitude: item.latitude,
       longitude: item.longitude,
-      radius_m: item.default_radius_m,
+      radius_m: radiusM,
     };
   }
   return {

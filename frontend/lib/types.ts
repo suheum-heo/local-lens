@@ -77,6 +77,7 @@ export interface Restaurant {
   };
   scores: ScoreBundle;
   label: RestaurantLabel | null;
+  source_area_ids?: string[];
 }
 
 export interface SearchResponse {

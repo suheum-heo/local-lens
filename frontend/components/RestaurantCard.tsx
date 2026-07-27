@@ -44,8 +44,7 @@ function PlatformBlock({
   explanation: string | null;
   emptyLabel: string;
 }) {
-  const showData =
-    availability === "available" && rating != null;
+  const showData = availability === "available" && rating != null;
 
   return (
     <div>
@@ -55,7 +54,10 @@ function PlatformBlock({
           <span className="font-semibold">{rating!.toFixed(1)}</span>
           <span className="text-ink/70"> ★</span>
           {reviewCount != null ? (
-            <span className="text-ink/55"> · {reviewCount.toLocaleString()} reviews</span>
+            <span className="text-ink/55">
+              {" "}
+              · {reviewCount.toLocaleString()} reviews
+            </span>
           ) : null}
         </p>
       ) : (
@@ -74,11 +76,34 @@ function PlatformBlock({
   );
 }
 
-export function RestaurantCard({ restaurant }: { restaurant: Restaurant }) {
+export function RestaurantCard({
+  restaurant,
+  selected = false,
+  onSelect,
+}: {
+  restaurant: Restaurant;
+  selected?: boolean;
+  onSelect?: (restaurantId: string) => void;
+}) {
   const { scores, kakao, google, label, match } = restaurant;
 
   return (
-    <article className="border-b border-ink/10 py-5 last:border-b-0">
+    <article
+      id={`restaurant-${restaurant.restaurant_id}`}
+      role={onSelect ? "button" : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      onClick={() => onSelect?.(restaurant.restaurant_id)}
+      onKeyDown={(e) => {
+        if (!onSelect) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect(restaurant.restaurant_id);
+        }
+      }}
+      className={`border-b border-ink/10 py-5 last:border-b-0 outline-none transition ${
+        selected ? "bg-leaf/5 ring-1 ring-inset ring-leaf/30" : ""
+      } ${onSelect ? "cursor-pointer hover:bg-mist/40" : ""}`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="text-lg font-semibold tracking-tight text-ink">
@@ -122,11 +147,7 @@ export function RestaurantCard({ restaurant }: { restaurant: Restaurant }) {
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-3 rounded-sm bg-mist/60 p-3">
-        <ScoreCell
-          title="Local"
-          score={scores.local.score}
-          explanation={null}
-        />
+        <ScoreCell title="Local" score={scores.local.score} explanation={null} />
         <ScoreCell
           title="Global"
           score={scores.global.score}
