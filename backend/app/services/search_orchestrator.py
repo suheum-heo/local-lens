@@ -9,6 +9,7 @@ from app.domain.models import Restaurant
 from app.matching.place_matcher import DefaultPlaceMatcher, PlaceMatcher
 from app.normalization.restaurant import normalize_and_dedupe
 from app.providers.base import GooglePlacesProvider, KakaoLocalProvider
+from app.providers.errors import ApiCallCounter
 from app.providers.factory import get_google_provider, get_kakao_provider
 from app.scoring.engine import ScoringEngine, SimpleScoringEngine
 
@@ -20,22 +21,23 @@ class SearchOrchestrator:
         google: GooglePlacesProvider | None = None,
         matcher: PlaceMatcher | None = None,
         scoring: ScoringEngine | None = None,
+        counter: ApiCallCounter | None = None,
     ) -> None:
-        self._kakao = kakao or get_kakao_provider()
-        self._google = google or get_google_provider()
+        self._counter = counter
+        self._kakao = kakao or get_kakao_provider(counter=counter)
+        self._google = google or get_google_provider(counter=counter)
         self._matcher = matcher or DefaultPlaceMatcher(self._google)
         self._scoring = scoring or SimpleScoringEngine()
 
     async def search(self, request: SearchRequest) -> SearchResponse:
-        areas = [
-            SearchArea.from_location(loc) for loc in request.locations
-        ]
+        areas = [SearchArea.from_location(loc) for loc in request.locations]
 
         area_results: list[tuple[str, list]] = []
         for area in areas:
             places = await self._kakao.search_restaurants(area, request.query)
             area_results.append((area.area_id, places))
 
+        # Dedupe BEFORE Google enrichment so each Kakao place is matched once.
         candidates = normalize_and_dedupe(area_results)
         restaurants: list[Restaurant] = []
 
@@ -61,7 +63,6 @@ class SearchOrchestrator:
             )
 
         restaurants.sort(key=_rank_key, reverse=True)
-
         notices = _build_notices(restaurants)
 
         return SearchResponse(
@@ -74,9 +75,16 @@ class SearchOrchestrator:
                 query=request.query,
                 city=request.city,
                 mode=request.mode,
+                api_calls=self._counter.as_dict() if self._counter else None,
             ),
             notices=notices,
         )
+
+
+def create_search_orchestrator() -> SearchOrchestrator:
+    """Build a request-scoped orchestrator (fresh provider caches + call counter)."""
+    counter = ApiCallCounter()
+    return SearchOrchestrator(counter=counter)
 
 
 def _rank_key(r: Restaurant) -> tuple[float, float, float]:

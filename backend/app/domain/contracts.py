@@ -25,6 +25,7 @@ class SearchMeta(BaseModel):
     query: str
     city: City
     mode: LocationMode
+    api_calls: dict[str, int] | None = None
 
 
 class SearchResponse(BaseModel):
