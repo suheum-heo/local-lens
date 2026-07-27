@@ -70,7 +70,7 @@ Mock fixtures include: strong dual-platform data, missing Google match, insuffic
 
 1. Obtain credentials (see [docs/PROVIDERS.md](docs/PROVIDERS.md)):
    - Kakao Developers → REST API key (Local/Map)
-   - Google Cloud → enable Places API → API key
+   - Google Cloud → enable **Places API (New)** → API key
 2. Copy `.env.example` → `backend/.env` and set:
 
 ```env
@@ -80,6 +80,8 @@ GOOGLE_PLACES_API_KEY=your_google_places_key
 ```
 
 3. Restart the backend. **Do not** put keys in the frontend, docs, or Git.
+
+Google enrichment uses Places API (New) **Text Search** (`places:searchText`), not legacy Find Place. Place Details (New) is only a fallback when rating/count are missing from search.
 
 Suggested first live validation (keeps Google usage small):
 

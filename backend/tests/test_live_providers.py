@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import json
+
 import httpx
 import pytest
 
 from app.domain.enums import City, LocationMode
 from app.domain.locations import SearchArea
-from app.matching.place_matcher import DefaultPlaceMatcher
+from app.domain.models import KakaoPlaceData
+from app.matching.place_matcher import DefaultPlaceMatcher, score_match
 from app.providers.errors import ApiCallCounter, ProviderAPIError, ProviderConfigError
-from app.providers.google import LiveGooglePlacesProvider
+from app.providers.google import SEARCH_FIELD_MASK, LiveGooglePlacesProvider
 from app.providers.kakao import LiveKakaoLocalProvider
 
 
@@ -42,6 +45,34 @@ SAMPLE_DOC = {
     "category_name": "음식점 > 한식",
     "place_url": "https://place.map.kakao.com/12345",
 }
+
+
+def _place_new(
+    *,
+    place_id: str,
+    name: str,
+    lat: float,
+    lng: float,
+    address: str = "서울 마포구 양화로 10",
+    rating: float | None = 4.5,
+    user_rating_count: int | None = 120,
+) -> dict:
+    place: dict = {
+        "id": place_id,
+        "name": f"places/{place_id}",
+        "displayName": {"text": name, "languageCode": "ko"},
+        "formattedAddress": address,
+        "location": {"latitude": lat, "longitude": lng},
+    }
+    if rating is not None:
+        place["rating"] = rating
+    if user_rating_count is not None:
+        place["userRatingCount"] = user_rating_count
+    return place
+
+
+def _search_response(places: list[dict]) -> httpx.Response:
+    return httpx.Response(200, json={"places": places})
 
 
 @pytest.mark.asyncio
@@ -133,28 +164,29 @@ async def test_live_google_requires_api_key():
 
 
 @pytest.mark.asyncio
-async def test_live_google_find_place_parses_and_caches():
+async def test_live_google_search_text_parses_and_caches():
     calls = {"n": 0}
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls["n"] += 1
-        assert "key" in request.url.params
-        # Ensure we do not accidentally echo the key into assertions beyond presence.
-        return httpx.Response(
-            200,
-            json={
-                "status": "OK",
-                "candidates": [
-                    {
-                        "place_id": "ChIJ_test",
-                        "name": "합정 맛집",
-                        "formatted_address": "서울 마포구 양화로 10",
-                        "geometry": {"location": {"lat": 37.5501, "lng": 126.9145}},
-                        "rating": 4.5,
-                        "user_ratings_total": 120,
-                    }
-                ],
-            },
+        assert request.method == "POST"
+        assert str(request.url).endswith("/v1/places:searchText")
+        assert request.headers.get("X-Goog-Api-Key") == "test-google-key"
+        assert request.headers.get("X-Goog-FieldMask") == SEARCH_FIELD_MASK
+        body = json.loads(request.content.decode())
+        assert "textQuery" in body
+        assert body["locationBias"]["circle"]["radius"] == 500.0
+        # API key must not appear in the JSON body.
+        assert "key" not in body
+        return _search_response(
+            [
+                _place_new(
+                    place_id="ChIJ_test",
+                    name="합정 맛집",
+                    lat=37.5501,
+                    lng=126.9145,
+                )
+            ]
         )
 
     counter = ApiCallCounter()
@@ -163,35 +195,108 @@ async def test_live_google_find_place_parses_and_caches():
         transport=httpx.MockTransport(handler),
         counter=counter,
     )
-    first = await provider.find_place("합정 맛집", 37.5501, 126.9145, "양화로 10")
-    second = await provider.find_place("합정 맛집", 37.5501, 126.9145, "양화로 10")
-    assert first is not None
-    assert first.google_place_id == "ChIJ_test"
-    assert first.rating == 4.5
-    assert first.user_rating_count == 120
-    assert second is first or second == first
+    first = await provider.search_places("합정 맛집", 37.5501, 126.9145, "양화로 10")
+    second = await provider.search_places("합정 맛집", 37.5501, 126.9145, "양화로 10")
+    assert len(first) == 1
+    assert first[0].google_place_id == "ChIJ_test"
+    assert first[0].rating == 4.5
+    assert first[0].user_rating_count == 120
+    assert second[0].google_place_id == first[0].google_place_id
     assert calls["n"] == 1
-    assert counter.google_find_place == 1
+    assert counter.google_search_text == 1
+    assert counter.google_details == 0
 
 
 @pytest.mark.asyncio
-async def test_live_google_zero_results():
+async def test_live_google_multiple_candidates_returned():
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"status": "ZERO_RESULTS", "candidates": []})
+        return _search_response(
+            [
+                _place_new(
+                    place_id="ChIJ_far",
+                    name="다른 식당",
+                    lat=37.56,
+                    lng=126.93,
+                    rating=4.0,
+                    user_rating_count=10,
+                ),
+                _place_new(
+                    place_id="ChIJ_near",
+                    name="합정 맛집",
+                    lat=37.5501,
+                    lng=126.9145,
+                    rating=4.6,
+                    user_rating_count=200,
+                ),
+            ]
+        )
 
     provider = LiveGooglePlacesProvider(
         api_key="test-google-key",
         transport=httpx.MockTransport(handler),
     )
-    assert await provider.find_place("없는집", 37.55, 126.91) is None
+    places = await provider.search_places("합정 맛집", 37.5501, 126.9145)
+    assert len(places) == 2
+    assert {p.google_place_id for p in places} == {"ChIJ_far", "ChIJ_near"}
 
 
 @pytest.mark.asyncio
-async def test_live_google_request_denied():
+async def test_live_google_no_candidates():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"places": []})
+
+    provider = LiveGooglePlacesProvider(
+        api_key="test-google-key",
+        transport=httpx.MockTransport(handler),
+    )
+    assert await provider.search_places("없는집", 37.55, 126.91) == []
+
+
+@pytest.mark.asyncio
+async def test_live_google_missing_rating_and_count():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _search_response(
+            [
+                _place_new(
+                    place_id="ChIJ_bare",
+                    name="합정 맛집",
+                    lat=37.5501,
+                    lng=126.9145,
+                    rating=None,
+                    user_rating_count=None,
+                )
+            ]
+        )
+
+    provider = LiveGooglePlacesProvider(
+        api_key="test-google-key",
+        transport=httpx.MockTransport(handler),
+    )
+    places = await provider.search_places("합정 맛집", 37.5501, 126.9145)
+    assert places[0].rating is None
+    assert places[0].user_rating_count is None
+
+
+@pytest.mark.asyncio
+async def test_live_google_malformed_response():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"not-json", headers={"content-type": "text/plain"})
+
+    provider = LiveGooglePlacesProvider(
+        api_key="test-google-key",
+        transport=httpx.MockTransport(handler),
+    )
+    with pytest.raises(ProviderAPIError) as exc:
+        await provider.search_places("합정 맛집", 37.55, 126.91)
+    assert "malformed" in exc.value.message.lower()
+
+
+@pytest.mark.asyncio
+async def test_live_google_auth_failure():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
-            200,
-            json={"status": "REQUEST_DENIED", "error_message": "secret hint"},
+            403,
+            json={"error": {"status": "PERMISSION_DENIED", "message": "secret hint"}},
         )
 
     provider = LiveGooglePlacesProvider(
@@ -199,63 +304,126 @@ async def test_live_google_request_denied():
         transport=httpx.MockTransport(handler),
     )
     with pytest.raises(ProviderAPIError) as exc:
-        await provider.find_place("합정 맛집", 37.55, 126.91)
+        await provider.search_places("합정 맛집", 37.55, 126.91)
     assert "GOOGLE_PLACES_API_KEY" in exc.value.message
     assert "secret hint" not in exc.value.message
 
 
 @pytest.mark.asyncio
-async def test_live_google_over_query_limit():
+async def test_live_google_quota_rate_limit():
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"status": "OVER_QUERY_LIMIT"})
+        return httpx.Response(
+            429,
+            json={"error": {"status": "RESOURCE_EXHAUSTED", "message": "quota"}},
+        )
 
     provider = LiveGooglePlacesProvider(
         api_key="test-google-key",
         transport=httpx.MockTransport(handler),
     )
     with pytest.raises(ProviderAPIError) as exc:
-        await provider.find_place("합정 맛집", 37.55, 126.91)
+        await provider.search_places("합정 맛집", 37.55, 126.91)
     assert exc.value.status_code == 429
+    assert exc.value.retryable
 
 
 @pytest.mark.asyncio
-async def test_matcher_skips_details_when_find_has_scores():
-    class TrackingGoogle(LiveGooglePlacesProvider):
-        def __init__(self) -> None:
-            self.details_calls = 0
+async def test_live_google_timeout():
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("slow")
 
-            def handler(request: httpx.Request) -> httpx.Response:
-                if "findplacefromtext" in str(request.url):
-                    return httpx.Response(
-                        200,
-                        json={
-                            "status": "OK",
-                            "candidates": [
-                                {
-                                    "place_id": "ChIJ_ok",
-                                    "name": "합정 맛집",
-                                    "formatted_address": "서울 마포구 양화로 10",
-                                    "geometry": {
-                                        "location": {"lat": 37.5501, "lng": 126.9145}
-                                    },
-                                    "rating": 4.6,
-                                    "user_ratings_total": 80,
-                                }
-                            ],
-                        },
+    provider = LiveGooglePlacesProvider(
+        api_key="test-google-key",
+        transport=httpx.MockTransport(handler),
+    )
+    with pytest.raises(ProviderAPIError) as exc:
+        await provider.search_places("합정 맛집", 37.55, 126.91)
+    assert exc.value.status_code == 504
+
+
+@pytest.mark.asyncio
+async def test_matcher_picks_best_of_multiple_candidates():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _search_response(
+            [
+                _place_new(
+                    place_id="ChIJ_wrong",
+                    name="완전 다른 이름",
+                    lat=37.56,
+                    lng=126.93,
+                    address="서울 마포구 다른로 99",
+                    rating=5.0,
+                    user_rating_count=999,
+                ),
+                _place_new(
+                    place_id="ChIJ_correct",
+                    name="합정 맛집",
+                    lat=37.5501,
+                    lng=126.9145,
+                    address="서울 마포구 양화로 10",
+                    rating=4.4,
+                    user_rating_count=50,
+                ),
+            ]
+        )
+
+    provider = LiveGooglePlacesProvider(
+        api_key="test-google-key",
+        transport=httpx.MockTransport(handler),
+    )
+    matcher = DefaultPlaceMatcher(provider)
+    kakao = KakaoPlaceData(
+        kakao_place_id="k1",
+        name="합정 맛집",
+        address="서울 마포구 합정동 1",
+        road_address="서울 마포구 양화로 10",
+        latitude=37.5501,
+        longitude=126.9145,
+        category="음식점",
+        place_url="https://place.map.kakao.com/k1",
+    )
+    result = await matcher.match(kakao)
+    assert result.matched is True
+    assert result.google is not None
+    assert result.google.google_place_id == "ChIJ_correct"
+    # Sanity: correct candidate scores higher than the distractor.
+    candidates = await provider.search_places(
+        kakao.name, kakao.latitude, kakao.longitude, kakao.road_address
+    )
+    by_id = {c.google_place_id: c for c in candidates}
+    assert score_match(kakao, by_id["ChIJ_correct"]) > score_match(
+        kakao, by_id["ChIJ_wrong"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_matcher_skips_details_when_search_has_scores():
+    details_calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            return _search_response(
+                [
+                    _place_new(
+                        place_id="ChIJ_ok",
+                        name="합정 맛집",
+                        lat=37.5501,
+                        lng=126.9145,
+                        rating=4.6,
+                        user_rating_count=80,
                     )
-                self.details_calls += 1
-                return httpx.Response(200, json={"status": "OK", "result": {}})
-
-            super().__init__(
-                api_key="test-google-key",
-                transport=httpx.MockTransport(handler),
+                ]
             )
+        details_calls["n"] += 1
+        return httpx.Response(200, json=_place_new(place_id="ChIJ_ok", name="합정 맛집", lat=37.5501, lng=126.9145))
 
-    google = TrackingGoogle()
-    matcher = DefaultPlaceMatcher(google)
-    from app.domain.models import KakaoPlaceData
-
+    counter = ApiCallCounter()
+    provider = LiveGooglePlacesProvider(
+        api_key="test-google-key",
+        transport=httpx.MockTransport(handler),
+        counter=counter,
+    )
+    matcher = DefaultPlaceMatcher(provider)
     kakao = KakaoPlaceData(
         kakao_place_id="k1",
         name="합정 맛집",
@@ -270,38 +438,66 @@ async def test_matcher_skips_details_when_find_has_scores():
     assert result.matched is True
     assert result.google is not None
     assert result.google.rating == 4.6
-    assert google.details_calls == 0
+    assert details_calls["n"] == 0
+    assert counter.google_search_text == 1
+    assert counter.google_details == 0
 
 
 @pytest.mark.asyncio
-async def test_live_google_details_parses_reviews():
+async def test_matcher_fetches_details_when_search_missing_scores():
     def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            return _search_response(
+                [
+                    _place_new(
+                        place_id="ChIJ_need_details",
+                        name="합정 맛집",
+                        lat=37.5501,
+                        lng=126.9145,
+                        rating=None,
+                        user_rating_count=None,
+                    )
+                ]
+            )
+        assert request.method == "GET"
+        assert "ChIJ_need_details" in str(request.url)
+        assert request.headers.get("X-Goog-FieldMask")
         return httpx.Response(
             200,
-            json={
-                "status": "OK",
-                "result": {
-                    "place_id": "ChIJ_details",
-                    "name": "테스트",
-                    "formatted_address": "서울",
-                    "geometry": {"location": {"lat": 37.55, "lng": 126.91}},
-                    "rating": 4.2,
-                    "user_ratings_total": 10,
-                    "reviews": [
-                        {"language": "ko", "rating": 5, "text": "좋아요"},
-                    ],
-                },
-            },
+            json=_place_new(
+                place_id="ChIJ_need_details",
+                name="합정 맛집",
+                lat=37.5501,
+                lng=126.9145,
+                rating=4.1,
+                user_rating_count=22,
+            ),
         )
 
+    counter = ApiCallCounter()
     provider = LiveGooglePlacesProvider(
         api_key="test-google-key",
         transport=httpx.MockTransport(handler),
+        counter=counter,
     )
-    details = await provider.get_place_details("ChIJ_details")
-    assert details is not None
-    assert details.user_rating_count == 10
-    assert details.review_metadata[0]["text"] == "좋아요"
+    matcher = DefaultPlaceMatcher(provider)
+    kakao = KakaoPlaceData(
+        kakao_place_id="k1",
+        name="합정 맛집",
+        address="서울 마포구 합정동 1",
+        road_address="서울 마포구 양화로 10",
+        latitude=37.5501,
+        longitude=126.9145,
+        category="음식점",
+        place_url="https://place.map.kakao.com/k1",
+    )
+    result = await matcher.match(kakao)
+    assert result.matched is True
+    assert result.google is not None
+    assert result.google.rating == 4.1
+    assert result.google.user_rating_count == 22
+    assert counter.google_search_text == 1
+    assert counter.google_details == 1
 
 
 def test_factory_live_missing_keys(monkeypatch):

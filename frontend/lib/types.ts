@@ -92,7 +92,7 @@ export interface SearchResponse {
     mode: LocationMode;
     api_calls?: {
       kakao_keyword: number;
-      google_find_place: number;
+      google_search_text: number;
       google_details: number;
       total: number;
     } | null;

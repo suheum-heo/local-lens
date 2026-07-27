@@ -21,16 +21,14 @@ def _haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 class MockGooglePlacesProvider(GooglePlacesProvider):
     """Returns pre-seeded Google places near a query coordinate."""
 
-    async def find_place(
+    async def search_places(
         self,
         name: str,
         latitude: float,
         longitude: float,
         address: str | None = None,
-    ) -> GooglePlaceData | None:
-        # Prefer exact mock linkage via proximity + name overlap
-        best: GooglePlaceData | None = None
-        best_score = -1.0
+    ) -> list[GooglePlaceData]:
+        ranked: list[tuple[float, GooglePlaceData]] = []
 
         for place in ALL_GOOGLE:
             if place.latitude is None or place.longitude is None:
@@ -39,17 +37,13 @@ class MockGooglePlacesProvider(GooglePlacesProvider):
             if dist > 2000:
                 continue
             name_score = _name_similarity(name, place.name)
-            # Closer + more similar name wins
             score = name_score * 0.7 + max(0.0, 1.0 - dist / 2000) * 0.3
-            if score > best_score:
-                best_score = score
-                best = place
+            if score >= 0.25:
+                ranked.append((score, place))
 
-        # Also expose intentional "missing" cases: if the Kakao id maps to None
-        # and the best nearby place is far/name-mismatched, return None.
-        if best is None or best_score < 0.25:
-            return None
-        return best
+        ranked.sort(key=lambda pair: pair[0], reverse=True)
+        # Return up to a few nearby candidates so the matcher can choose.
+        return [place for _, place in ranked[:5]]
 
     async def get_place_details(self, google_place_id: str) -> GooglePlaceData | None:
         for place in ALL_GOOGLE:
@@ -74,11 +68,11 @@ def _name_similarity(a: str, b: str) -> float:
 
 
 def _tokens(s: str) -> set[str]:
-    # Keep Hangul syllables and alphanumerics as separate tokens when spaced;
-    # also emit character bigrams for Hangul-heavy strings without spaces.
     normalized = s.lower().replace(",", " ").replace("-", " ")
     parts = {p for p in normalized.split() if p}
-    compact = "".join(ch for ch in normalized if ch.isalnum() or "\uac00" <= ch <= "\ud7a3")
+    compact = "".join(
+        ch for ch in normalized if ch.isalnum() or "\uac00" <= ch <= "\ud7a3"
+    )
     if len(compact) >= 2:
         parts |= {compact[i : i + 2] for i in range(len(compact) - 1)}
     return parts

@@ -24,16 +24,21 @@ class GooglePlacesProvider(ABC):
     """Look up Google Places entities for matching / enrichment."""
 
     @abstractmethod
-    async def find_place(
+    async def search_places(
         self,
         name: str,
         latitude: float,
         longitude: float,
         address: str | None = None,
-    ) -> GooglePlaceData | None:
-        """Return a candidate Google place near the given coordinates, or None."""
+    ) -> list[GooglePlaceData]:
+        """Return zero or more Google place candidates near the given query.
+
+        Callers (the matcher) must score candidates — do not assume index 0
+        is the correct match.
+        """
         raise NotImplementedError
 
     @abstractmethod
     async def get_place_details(self, google_place_id: str) -> GooglePlaceData | None:
+        """Optional enrichment when search did not return scoring fields."""
         raise NotImplementedError

@@ -23,19 +23,23 @@ class PlaceMatcher(ABC):
 
 
 class DefaultPlaceMatcher(PlaceMatcher):
-    """Score name similarity + geographic distance; reject uncertain matches."""
+    """Score name similarity + geographic distance; reject uncertain matches.
+
+    When Google returns multiple Text Search candidates, pick the highest
+    confidence match rather than assuming index 0 is correct.
+    """
 
     def __init__(self, google: GooglePlacesProvider) -> None:
         self._google = google
 
     async def match(self, kakao: KakaoPlaceData) -> PlaceMatchResult:
-        candidate = await self._google.find_place(
+        candidates = await self._google.search_places(
             name=kakao.name,
             latitude=kakao.latitude,
             longitude=kakao.longitude,
             address=kakao.road_address or kakao.address,
         )
-        if candidate is None:
+        if not candidates:
             return PlaceMatchResult(
                 confidence=0.0,
                 confidence_level=MatchConfidenceLevel.NONE,
@@ -44,7 +48,9 @@ class DefaultPlaceMatcher(PlaceMatcher):
                 reason="No Google Places candidate found near this location.",
             )
 
-        confidence = score_match(kakao, candidate)
+        scored = [(score_match(kakao, c), c) for c in candidates]
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+        confidence, candidate = scored[0]
         level = confidence_level(confidence)
         accepted = confidence >= MATCH_ACCEPT_THRESHOLD
 
@@ -61,8 +67,8 @@ class DefaultPlaceMatcher(PlaceMatcher):
                 ),
             )
 
-        # Prefer Find Place payload when it already has scoring fields to avoid
-        # a billable Place Details request. Fetch details only when needed.
+        # Prefer Text Search payload when it already has scoring fields to avoid
+        # a billable Place Details (New) request.
         google = candidate
         if candidate.rating is None or candidate.user_rating_count is None:
             details = await self._google.get_place_details(candidate.google_place_id)
@@ -126,7 +132,6 @@ def name_similarity(a: str, b: str) -> float:
     ta, tb = _tokens(a), _tokens(b)
     if not ta or not tb:
         return 0.0
-    # Also compare transliteration-agnostic compact forms
     ca, cb = _compact(a), _compact(b)
     jaccard = len(ta & tb) / len(ta | tb)
     if ca and cb and (ca in cb or cb in ca):
@@ -135,7 +140,6 @@ def name_similarity(a: str, b: str) -> float:
 
 
 def address_similarity(a: str, b: str) -> float:
-    # Digits and key locality tokens
     da, db = set(re.findall(r"\d+", a)), set(re.findall(r"\d+", b))
     digit_score = (len(da & db) / len(da | db)) if da and db else 0.0
     ta, tb = _tokens(a), _tokens(b)

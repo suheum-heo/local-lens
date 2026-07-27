@@ -345,7 +345,7 @@ GOOGLE_BY_KAKAO_ID: dict[str, GooglePlaceData | None] = {
     ),
 }
 
-# Places that exist in Google catalog for find_place search (includes distractors)
+# Places that exist in Google catalog for search_places (includes distractors)
 ALL_GOOGLE: list[GooglePlaceData] = [
     g for g in GOOGLE_BY_KAKAO_ID.values() if g is not None
 ]

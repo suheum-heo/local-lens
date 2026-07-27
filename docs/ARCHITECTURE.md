@@ -63,17 +63,17 @@ The frontend keeps search configuration in the URL (`city`, `mode`, `locs`, `rad
 ## Provider switching
 
 `PROVIDER_MODE=mock` (default) → `MockKakaoLocalProvider` / `MockGooglePlacesProvider`  
-`PROVIDER_MODE=live` → `LiveKakaoLocalProvider` / `LiveGooglePlacesProvider`
+`PROVIDER_MODE=live` → `LiveKakaoLocalProvider` / `LiveGooglePlacesProvider` (**Places API New**)
 
 Factory: `app/providers/factory.py`. Live mode requires both API keys and **never** falls back to mock silently.
 
-Each `POST /api/search` builds a request-scoped orchestrator (fresh Google caches + `ApiCallCounter`). See [PROVIDERS.md](PROVIDERS.md) for endpoints, pagination limits, and cost controls.
+Each `POST /api/search` builds a request-scoped orchestrator (fresh Google caches + `ApiCallCounter`). See [PROVIDERS.md](PROVIDERS.md) for endpoints, field masks, and cost controls.
 
 ## Matching policy
 
-Matching uses name similarity, distance, and address overlap. Results below the accept threshold (`0.55`) are **not** attached to the restaurant. Uncertain matches stay `unmatched` — never silently linked.
+Matching uses name similarity, distance, and address overlap across **all** Text Search candidates (not just the first). Results below the accept threshold (`0.55`) are **not** attached to the restaurant. Uncertain matches stay `unmatched` — never silently linked.
 
-Google Place Details is called only when Find Place did not already return rating + user rating count.
+Google Place Details (New) is called only when Text Search did not already return rating + user rating count.
 
 ## Missing data
 
@@ -91,7 +91,8 @@ Kakao Local keyword search does **not** provide ratings; live Local Score is usu
 ## Extending to real APIs
 
 1. Set `KAKAO_REST_API_KEY` and `GOOGLE_PLACES_API_KEY` in `backend/.env`.
-2. Set `PROVIDER_MODE=live`.
-3. Restart the backend. Orchestration, matching, and scoring stay unchanged.
+2. Enable **Places API (New)** in Google Cloud (Text Search).
+3. Set `PROVIDER_MODE=live`.
+4. Restart the backend. Orchestration, matching, and scoring stay unchanged.
 
 PostgreSQL + SQLAlchemy are listed for persistence; the MVP search path is request-scoped (in-memory repository stub only).

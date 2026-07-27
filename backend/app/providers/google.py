@@ -1,14 +1,15 @@
-"""Live Google Places API provider (requires GOOGLE_PLACES_API_KEY).
+"""Live Google Places API (New) provider (requires GOOGLE_PLACES_API_KEY).
 
-Endpoints (Places API — Find Place / Place Details):
-  GET https://maps.googleapis.com/maps/api/place/findplacefromtext/json
-  GET https://maps.googleapis.com/maps/api/place/details/json
+Endpoints:
+  POST https://places.googleapis.com/v1/places:searchText
+  GET  https://places.googleapis.com/v1/places/{place_id}
 
-Cost control:
-  - Request-scoped in-memory caches for find_place and get_place_details
-  - Find Place requests only fields needed for matching + scoring
-  - Place Details is optional; callers should skip it when Find Place already
-    returned rating + user_ratings_total
+Text Search field mask (matching + scoring; no reviews):
+  places.id,places.displayName,places.formattedAddress,
+  places.location,places.rating,places.userRatingCount
+
+Place Details is only used when Text Search omitted rating or userRatingCount.
+Reviews are not requested — LocalLens scoring uses rating + review count only.
 """
 
 from __future__ import annotations
@@ -25,20 +26,35 @@ from app.providers.errors import ApiCallCounter, ProviderAPIError, ProviderConfi
 
 logger = logging.getLogger(__name__)
 
-FIND_PLACE_URL = "https://maps.googleapis.com/maps/api/place/findplacefromtext/json"
-DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json"
+SEARCH_TEXT_URL = "https://places.googleapis.com/v1/places:searchText"
+PLACE_DETAILS_URL = "https://places.googleapis.com/v1/places/{place_id}"
 
-FIND_PLACE_FIELDS = (
-    "place_id,name,formatted_address,geometry,rating,user_ratings_total"
+# Pro SKU fields used for matching + Local/Global scoring. Avoid '*' masks.
+SEARCH_FIELD_MASK = ",".join(
+    [
+        "places.id",
+        "places.displayName",
+        "places.formattedAddress",
+        "places.location",
+        "places.rating",
+        "places.userRatingCount",
+    ]
 )
-# Details only when Find Place lacks scoring fields; reviews are optional metadata.
-DETAILS_FIELDS = (
-    "place_id,name,formatted_address,geometry,rating,user_ratings_total,reviews"
+# Same data for Details (New); no reviews (not required by scoring).
+DETAILS_FIELD_MASK = ",".join(
+    [
+        "id",
+        "displayName",
+        "formattedAddress",
+        "location",
+        "rating",
+        "userRatingCount",
+    ]
 )
 
 REQUEST_TIMEOUT_S = 15.0
-# Bias Find Place to the Kakao coordinates so distant namesakes are less likely.
-FIND_LOCATION_BIAS_RADIUS_M = 500
+LOCATION_BIAS_RADIUS_M = 500.0
+MAX_SEARCH_RESULTS = 5
 
 
 class LiveGooglePlacesProvider(GooglePlacesProvider):
@@ -58,115 +74,118 @@ class LiveGooglePlacesProvider(GooglePlacesProvider):
             )
         self._transport = transport
         self._counter = counter
-        # Request-scoped caches (provider is constructed per search).
-        self._find_cache: dict[tuple[str, float, float, str], GooglePlaceData | None] = {}
+        self._search_cache: dict[
+            tuple[str, float, float, str], list[GooglePlaceData]
+        ] = {}
         self._details_cache: dict[str, GooglePlaceData | None] = {}
 
-    async def find_place(
+    async def search_places(
         self,
         name: str,
         latitude: float,
         longitude: float,
         address: str | None = None,
-    ) -> GooglePlaceData | None:
+    ) -> list[GooglePlaceData]:
         cache_key = (
             name.strip(),
             round(latitude, 5),
             round(longitude, 5),
             (address or "").strip(),
         )
-        if cache_key in self._find_cache:
-            return self._find_cache[cache_key]
+        if cache_key in self._search_cache:
+            return list(self._search_cache[cache_key])
 
-        input_text = f"{name} {address}".strip() if address else name
-        params = {
-            "input": input_text,
-            "inputtype": "textquery",
-            "fields": FIND_PLACE_FIELDS,
-            "locationbias": (
-                f"circle:{FIND_LOCATION_BIAS_RADIUS_M}@{latitude},{longitude}"
-            ),
-            "key": self._api_key,
-            "language": "ko",
+        text_query = f"{name} {address}".strip() if address else name.strip()
+        body: dict[str, Any] = {
+            "textQuery": text_query,
+            "languageCode": "ko",
+            "regionCode": "KR",
+            "includedType": "restaurant",
+            "pageSize": MAX_SEARCH_RESULTS,
+            "locationBias": {
+                "circle": {
+                    "center": {"latitude": latitude, "longitude": longitude},
+                    "radius": LOCATION_BIAS_RADIUS_M,
+                }
+            },
         }
 
-        data = await self._get_json(
-            FIND_PLACE_URL,
-            params=params,
-            counter_attr="google_find_place",
+        data = await self._request_json(
+            "POST",
+            SEARCH_TEXT_URL,
+            headers={
+                "Content-Type": "application/json",
+                "X-Goog-Api-Key": self._api_key,
+                "X-Goog-FieldMask": SEARCH_FIELD_MASK,
+            },
+            json_body=body,
+            counter_attr="google_search_text",
         )
-        status = data.get("status")
-        if status == "ZERO_RESULTS":
-            self._find_cache[cache_key] = None
-            return None
-        if status != "OK":
-            self._raise_google_status(status, data.get("error_message"))
 
-        candidates = data.get("candidates") or []
-        if not candidates:
-            self._find_cache[cache_key] = None
-            return None
+        places_raw = data.get("places") or []
+        places: list[GooglePlaceData] = []
+        for raw in places_raw:
+            place = _normalize_place(raw, fallback_name=name)
+            if place is not None:
+                places.append(place)
+                self._details_cache.setdefault(place.google_place_id, place)
 
-        place = _normalize_candidate(candidates[0], fallback_name=name)
-        self._find_cache[cache_key] = place
-        if place is not None:
-            # Seed details cache so a later details call can reuse if identical.
-            self._details_cache.setdefault(place.google_place_id, place)
-        return place
+        self._search_cache[cache_key] = places
+        return list(places)
 
     async def get_place_details(self, google_place_id: str) -> GooglePlaceData | None:
         if google_place_id in self._details_cache:
             cached = self._details_cache[google_place_id]
-            # If cache only has Find Place payload without reviews but has scores,
-            # still return it — callers decide whether details are required.
             if cached is not None and _has_scoring_fields(cached):
                 return cached
 
-        params = {
-            "place_id": google_place_id,
-            "fields": DETAILS_FIELDS,
-            "key": self._api_key,
-            "language": "ko",
-            "reviews_no_translations": "true",
-        }
-        data = await self._get_json(
-            DETAILS_URL,
-            params=params,
+        place_id = google_place_id.removeprefix("places/")
+        url = PLACE_DETAILS_URL.format(place_id=place_id)
+        data = await self._request_json(
+            "GET",
+            url,
+            headers={
+                "Content-Type": "application/json",
+                "X-Goog-Api-Key": self._api_key,
+                "X-Goog-FieldMask": DETAILS_FIELD_MASK,
+            },
+            json_body=None,
             counter_attr="google_details",
         )
-        status = data.get("status")
-        if status == "NOT_FOUND" or status == "ZERO_RESULTS":
-            self._details_cache[google_place_id] = None
-            return None
-        if status != "OK":
-            self._raise_google_status(status, data.get("error_message"))
 
-        result = data.get("result")
-        if not result:
+        if not data:
             self._details_cache[google_place_id] = None
             return None
 
-        place = _normalize_details(result)
+        place = _normalize_place(data, fallback_name="")
         self._details_cache[google_place_id] = place
+        if place is not None and place.google_place_id != google_place_id:
+            self._details_cache[place.google_place_id] = place
         return place
 
-    async def _get_json(
+    async def _request_json(
         self,
+        method: str,
         url: str,
         *,
-        params: dict[str, Any],
+        headers: dict[str, str],
+        json_body: dict[str, Any] | None,
         counter_attr: str,
     ) -> dict[str, Any]:
         if self._counter is not None:
-            setattr(self._counter, counter_attr, getattr(self._counter, counter_attr) + 1)
+            setattr(
+                self._counter,
+                counter_attr,
+                getattr(self._counter, counter_attr) + 1,
+            )
 
-        # Never log params — they contain the API key.
+        # Never log headers/body — they may include the API key.
         async with httpx.AsyncClient(
             timeout=REQUEST_TIMEOUT_S,
             transport=self._transport,
         ) as client:
             try:
-                resp = await client.get(url, params=params)
+                resp = await client.request(method, url, headers=headers, json=json_body)
             except httpx.TimeoutException as exc:
                 raise ProviderAPIError(
                     "Google Places API timed out. Please try again shortly.",
@@ -183,14 +202,43 @@ class LiveGooglePlacesProvider(GooglePlacesProvider):
                     retryable=True,
                 ) from exc
 
+        if resp.status_code in {401, 403}:
+            raise ProviderAPIError(
+                "Google Places API authentication failed. Check GOOGLE_PLACES_API_KEY "
+                "and Places API (New) enablement.",
+                provider="google",
+                status_code=502,
+            )
+        if resp.status_code == 429:
+            raise ProviderAPIError(
+                "Google Places API quota or rate limit exceeded. Please try again later.",
+                provider="google",
+                status_code=429,
+                retryable=True,
+            )
+        if resp.status_code == 404:
+            return {}
         if resp.status_code >= 400:
             logger.warning("Google Places HTTP %s", resp.status_code)
+            # Prefer status-based messages; never forward raw error payloads.
+            err_status = _extract_error_status(resp)
+            if err_status == "RESOURCE_EXHAUSTED":
+                raise ProviderAPIError(
+                    "Google Places API quota or rate limit exceeded. Please try again later.",
+                    provider="google",
+                    status_code=429,
+                    retryable=True,
+                )
             raise ProviderAPIError(
-                "Google Places API returned an error.",
+                "Google Places API returned an error. Check GOOGLE_PLACES_API_KEY "
+                "and Places API (New) enablement.",
                 provider="google",
                 status_code=502,
                 retryable=resp.status_code >= 500,
             )
+
+        if not resp.content:
+            return {}
 
         try:
             data = resp.json()
@@ -209,83 +257,57 @@ class LiveGooglePlacesProvider(GooglePlacesProvider):
             )
         return data
 
-    def _raise_google_status(self, status: str | None, error_message: Any) -> None:
-        # Do not surface Google's raw error_message to clients — may leak config hints.
-        logger.warning("Google Places status=%s", status)
-        if status in {"OVER_QUERY_LIMIT", "RESOURCE_EXHAUSTED"}:
-            raise ProviderAPIError(
-                "Google Places API quota or rate limit exceeded. Please try again later.",
-                provider="google",
-                status_code=429,
-                retryable=True,
-            )
-        if status in {"REQUEST_DENIED", "INVALID_REQUEST"}:
-            raise ProviderAPIError(
-                "Google Places API rejected the request. Check GOOGLE_PLACES_API_KEY "
-                "and Places API enablement.",
-                provider="google",
-                status_code=502,
-            )
-        if status == "UNKNOWN_ERROR":
-            raise ProviderAPIError(
-                "Google Places API reported a temporary error.",
-                provider="google",
-                status_code=502,
-                retryable=True,
-            )
-        raise ProviderAPIError(
-            "Google Places API returned an unexpected status.",
-            provider="google",
-            status_code=502,
-        )
+
+def _extract_error_status(resp: httpx.Response) -> str | None:
+    try:
+        payload = resp.json()
+    except ValueError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    error = payload.get("error")
+    if isinstance(error, dict):
+        status = error.get("status")
+        return str(status) if status else None
+    return None
 
 
 def _has_scoring_fields(place: GooglePlaceData) -> bool:
     return place.rating is not None and place.user_rating_count is not None
 
 
-def _normalize_candidate(c: Any, *, fallback_name: str) -> GooglePlaceData | None:
-    if not isinstance(c, dict):
+def _normalize_place(raw: Any, *, fallback_name: str) -> GooglePlaceData | None:
+    """Normalize Places API (New) Place object → GooglePlaceData."""
+    if not isinstance(raw, dict):
         return None
-    place_id = c.get("place_id")
+
+    place_id = raw.get("id")
+    if not place_id:
+        # Resource name form: "places/ChIJ..."
+        resource = raw.get("name")
+        if isinstance(resource, str) and resource.startswith("places/"):
+            place_id = resource.removeprefix("places/")
     if not place_id:
         return None
-    loc = (c.get("geometry") or {}).get("location") or {}
+
+    display = raw.get("displayName")
+    if isinstance(display, dict):
+        name = display.get("text") or fallback_name
+    elif isinstance(display, str):
+        name = display
+    else:
+        name = fallback_name or ""
+
+    loc = raw.get("location") or {}
     return GooglePlaceData(
-        google_place_id=str(place_id),
-        name=c.get("name") or fallback_name,
-        address=c.get("formatted_address"),
-        latitude=_as_float(loc.get("lat")),
-        longitude=_as_float(loc.get("lng")),
-        rating=_as_float(c.get("rating")),
-        user_rating_count=_as_int(c.get("user_ratings_total")),
+        google_place_id=str(place_id).removeprefix("places/"),
+        name=str(name),
+        address=raw.get("formattedAddress"),
+        latitude=_as_float(loc.get("latitude")),
+        longitude=_as_float(loc.get("longitude")),
+        rating=_as_float(raw.get("rating")),
+        user_rating_count=_as_int(raw.get("userRatingCount")),
         review_metadata=[],
-    )
-
-
-def _normalize_details(result: dict[str, Any]) -> GooglePlaceData:
-    loc = (result.get("geometry") or {}).get("location") or {}
-    reviews = result.get("reviews") or []
-    review_metadata: list[dict[str, Any]] = []
-    for r in reviews:
-        if not isinstance(r, dict):
-            continue
-        review_metadata.append(
-            {
-                "language": r.get("language"),
-                "rating": r.get("rating"),
-                "text": r.get("text"),
-            }
-        )
-    return GooglePlaceData(
-        google_place_id=str(result["place_id"]),
-        name=result.get("name") or "",
-        address=result.get("formatted_address"),
-        latitude=_as_float(loc.get("lat")),
-        longitude=_as_float(loc.get("lng")),
-        rating=_as_float(result.get("rating")),
-        user_rating_count=_as_int(result.get("user_ratings_total")),
-        review_metadata=review_metadata,
     )
 
 
