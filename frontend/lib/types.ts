@@ -90,6 +90,12 @@ export interface SearchResponse {
     query: string;
     city: City;
     mode: LocationMode;
+    api_calls?: {
+      kakao_keyword: number;
+      google_find_place: number;
+      google_details: number;
+      total: number;
+    } | null;
   };
   notices: string[];
 }

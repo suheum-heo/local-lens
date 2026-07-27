@@ -14,14 +14,14 @@ Missing data stays missing. Weak Google coverage is never turned into a fake zer
 local-lens/
   frontend/     Next.js (App Router) + TypeScript + Tailwind
   backend/      FastAPI + Pydantic + provider interfaces
-  docs/         ARCHITECTURE.md, SCORING.md, DATA_MODEL.md
+  docs/         ARCHITECTURE.md, SCORING.md, DATA_MODEL.md, PROVIDERS.md
 ```
 
 ## Prerequisites
 
 - Python 3.11+
 - Node.js 20+
-- (Optional) Kakao REST API key + Google Places API key for live mode
+- (Optional for live mode) Kakao REST API key + Google Places API key
 
 ## Quick start (mock mode — no API keys)
 
@@ -47,7 +47,7 @@ API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 ```bash
 cd frontend
 npm install
-cp ../.env.example .env.local      # uses NEXT_PUBLIC_API_BASE_URL
+# Ensure NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 in .env.local
 npm run dev
 ```
 
@@ -66,10 +66,12 @@ The UI keeps `city`, `mode`, `locs`, `radius`, `q`, and `run` in the URL so refr
 
 Mock fixtures include: strong dual-platform data, missing Google match, insufficient Google reviews, and uncertain matching.
 
-## Live providers
+## Live mode (real Kakao + Google)
 
-1. Copy `.env.example` → `backend/.env`
-2. Set:
+1. Obtain credentials (see [docs/PROVIDERS.md](docs/PROVIDERS.md)):
+   - Kakao Developers → REST API key (Local/Map)
+   - Google Cloud → enable Places API → API key
+2. Copy `.env.example` → `backend/.env` and set:
 
 ```env
 PROVIDER_MODE=live
@@ -77,9 +79,15 @@ KAKAO_REST_API_KEY=your_kakao_rest_key
 GOOGLE_PLACES_API_KEY=your_google_places_key
 ```
 
-3. Restart the backend. Interfaces stay the same; only the factory swaps implementations.
+3. Restart the backend. **Do not** put keys in the frontend, docs, or Git.
 
-**Note:** Kakao Local keyword search does not return star ratings. Local Score may be `unavailable` in live mode until a richer enrichment source is added. See `docs/SCORING.md`.
+Suggested first live validation (keeps Google usage small):
+
+- Seoul · 합정역 · radius **1 km** · query **맛집**
+
+**Important:** Kakao Local keyword search discovers candidates but **does not** return Kakao star ratings/reviews. In live mode, Local Score is typically `unavailable` while Global Score uses Google when a confident match exists.
+
+Live mode fails with a clear configuration error if keys are missing — it will not silently use mock data.
 
 ## Tests
 
@@ -89,11 +97,20 @@ source .venv/bin/activate
 pytest
 ```
 
+Live-provider tests mock HTTP and never call billable APIs.
+
+```bash
+cd frontend
+npm run lint    # tsc --noEmit
+npm run build
+```
+
 ## Documentation
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - [docs/SCORING.md](docs/SCORING.md)
 - [docs/DATA_MODEL.md](docs/DATA_MODEL.md)
+- [docs/PROVIDERS.md](docs/PROVIDERS.md) — endpoints, credentials, API cost notes
 
 ## API
 
