@@ -1,0 +1,17 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-paper font-body text-ink antialiased;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(47, 107, 79, 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(196, 92, 38, 0.06), transparent);
+  min-height: 100vh;
+}
