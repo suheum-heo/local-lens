@@ -94,8 +94,9 @@ class SimpleScoringEngine(ScoringEngine):
                 review_count=None,
                 score=None,
                 explanation=(
-                    "Kakao 평점/리뷰 데이터가 제공되지 않아 Local Score를 "
-                    "계산하지 않았습니다."
+                    "Kakao Local API는 별점/후기 수를 제공하지 않아 "
+                    "Local Score를 계산하지 않았습니다. "
+                    "(카카오맵 앱에 후기가 있어도 API로는 가져올 수 없습니다.)"
                 ),
             )
 

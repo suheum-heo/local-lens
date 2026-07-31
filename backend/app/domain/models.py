@@ -6,8 +6,12 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.domain.enums import DataAvailability, MatchConfidenceLevel, RestaurantLabel
-
+from app.domain.enums import (
+    DataAvailability,
+    MatchConfidenceLevel,
+    RatingCoverage,
+    RestaurantLabel,
+)
 
 class KakaoPlaceData(BaseModel):
     """Normalized Kakao Local place fields."""
@@ -88,6 +92,7 @@ class Restaurant(BaseModel):
     match: PlaceMatchResult
     scores: ScoreBundle
     label: RestaurantLabel | None = None
+    rating_coverage: RatingCoverage = RatingCoverage.NONE
     source_area_ids: list[str] = Field(default_factory=list)
 
 

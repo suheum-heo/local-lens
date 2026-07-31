@@ -17,11 +17,24 @@ import type {
   City,
   LocationCatalogItem,
   LocationMode,
+  RatingCoverage,
+  Restaurant,
   SearchResponse,
 } from "@/lib/types";
 import { RestaurantCard } from "./RestaurantCard";
 import { ResultsMapClient } from "./ResultsMapClient";
 import { areasFromSelection } from "@/lib/mapAreas";
+
+const PAGE_SIZE = 10;
+
+type CoverageFilter = "all" | RatingCoverage;
+
+const COVERAGE_TABS: { id: CoverageFilter; label: string }[] = [
+  { id: "all", label: "전체" },
+  { id: "both", label: "양쪽 평점" },
+  { id: "kakao_only", label: "카카오만" },
+  { id: "google_only", label: "구글만" },
+];
 
 export function SearchPage() {
   const [city, setCity] = useState<City>("seoul");
@@ -37,13 +50,14 @@ export function SearchPage() {
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<
     string | null
   >(null);
+  const [coverageFilter, setCoverageFilter] = useState<CoverageFilter>("all");
+  const [page, setPage] = useState(1);
   const [hydrated, setHydrated] = useState(false);
   const pendingLocationIds = useRef<string[] | null>(null);
   const shouldAutoSearch = useRef(false);
   const skipNextCatalogClear = useRef(false);
   const listRef = useRef<HTMLDivElement | null>(null);
 
-  // Restore search config from URL once on mount.
   useEffect(() => {
     const parsed = parseSearchParams(new URLSearchParams(window.location.search));
     if (parsed.city) setCity(parsed.city);
@@ -64,8 +78,6 @@ export function SearchPage() {
     setHydrated(true);
   }, []);
 
-  // Prefer neighborhood mode for cities without subway catalog — but not when
-  // restoring a shared URL that already set mode.
   useEffect(() => {
     if (!hydrated) return;
     if (skipNextCatalogClear.current) return;
@@ -122,7 +134,6 @@ export function SearchPage() {
     [city, mode, selected, radiusM, query],
   );
 
-  // Keep URL in sync as the form changes (without forcing a search).
   useEffect(() => {
     if (!hydrated) return;
     syncUrl(Boolean(result));
@@ -142,6 +153,39 @@ export function SearchPage() {
     () => areasFromSelection(selected, radiusM, mode),
     [selected, radiusM, mode],
   );
+
+  const coverageCounts = useMemo(() => {
+    const counts: Record<CoverageFilter, number> = {
+      all: 0,
+      both: 0,
+      kakao_only: 0,
+      google_only: 0,
+      none: 0,
+    };
+    if (!result) return counts;
+    counts.all = result.results.length;
+    for (const r of result.results) {
+      counts[r.rating_coverage] += 1;
+    }
+    return counts;
+  }, [result]);
+
+  const filteredResults = useMemo(() => {
+    if (!result) return [] as Restaurant[];
+    if (coverageFilter === "all") return result.results;
+    return result.results.filter((r) => r.rating_coverage === coverageFilter);
+  }, [result, coverageFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredResults.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageResults = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredResults.slice(start, start + PAGE_SIZE);
+  }, [filteredResults, currentPage]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [coverageFilter, result]);
 
   function toggleLocation(item: LocationCatalogItem) {
     setSelected((prev) => {
@@ -169,6 +213,8 @@ export function SearchPage() {
     }
     setLoading(true);
     setSelectedRestaurantId(null);
+    setCoverageFilter("all");
+    setPage(1);
     try {
       const data = await searchRestaurants({
         city,
@@ -195,7 +241,6 @@ export function SearchPage() {
     }
   }, [city, mode, selected, radiusM, query]);
 
-  // Auto-run when landing on a shareable URL with run=1.
   useEffect(() => {
     if (!hydrated || !shouldAutoSearch.current) return;
     if (selected.length === 0) return;
@@ -207,6 +252,12 @@ export function SearchPage() {
     setSelectedRestaurantId(restaurantId);
     const el = document.getElementById(`restaurant-${restaurantId}`);
     el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  function goToPage(next: number) {
+    const clamped = Math.min(Math.max(1, next), totalPages);
+    setPage(clamped);
+    listRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   return (
@@ -401,37 +452,129 @@ export function SearchPage() {
             </ul>
           ) : null}
 
+          <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="평점 분류">
+            {COVERAGE_TABS.map((tab) => {
+              const active = coverageFilter === tab.id;
+              const count = coverageCounts[tab.id];
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setCoverageFilter(tab.id)}
+                  className={`border px-3 py-1.5 text-sm transition ${
+                    active
+                      ? "border-leaf bg-leaf text-white"
+                      : "border-ink/15 bg-white text-ink hover:border-leaf/40"
+                  }`}
+                >
+                  {tab.label}
+                  <span className={`ml-1.5 tabular-nums ${active ? "text-white/80" : "text-ink/45"}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="mb-4 text-xs text-ink/45">
+            분류 기준: Kakao/Google에 <em>숫자 평점</em>이 있는지. Kakao Local
+            API는 평점을 주지 않아 live에서는 대부분 &quot;구글만&quot;으로
+            보입니다.
+          </p>
+
           {mapAreas.length > 0 ? (
             <div className="mb-6">
               <ResultsMapClient
                 areas={mapAreas}
-                restaurants={result.results}
+                restaurants={filteredResults}
                 selectedRestaurantId={selectedRestaurantId}
                 onSelectRestaurant={selectRestaurant}
               />
               <p className="mt-2 text-xs text-ink/45">
-                지도를 탭하면 해당 식당 카드가 강조되고, 카드를 누르면 마커로
-                이동합니다.
+                지도는 현재 선택한 분류의 장소를 표시합니다. 카드 ↔ 마커 연동.
               </p>
             </div>
           ) : null}
 
-          {result.results.length === 0 ? (
+          {filteredResults.length === 0 ? (
             <p className="text-sm text-ink/55">
-              선택한 영역에서 식당을 찾지 못했습니다. 반경·위치·검색어를 바꿔
-              보세요.
+              이 분류에 해당하는 식당이 없습니다. 다른 탭을 선택해 보세요.
             </p>
           ) : (
-            <div ref={listRef}>
-              {result.results.map((r) => (
-                <RestaurantCard
-                  key={r.restaurant_id}
-                  restaurant={r}
-                  selected={r.restaurant_id === selectedRestaurantId}
-                  onSelect={selectRestaurant}
-                />
-              ))}
-            </div>
+            <>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-ink/50">
+                <span>
+                  {filteredResults.length}곳 중{" "}
+                  {(currentPage - 1) * PAGE_SIZE + 1}–
+                  {Math.min(currentPage * PAGE_SIZE, filteredResults.length)} 표시
+                </span>
+                <span>
+                  {currentPage} / {totalPages} 페이지
+                </span>
+              </div>
+              <div ref={listRef}>
+                {pageResults.map((r) => (
+                  <RestaurantCard
+                    key={r.restaurant_id}
+                    restaurant={r}
+                    selected={r.restaurant_id === selectedRestaurantId}
+                    onSelect={selectRestaurant}
+                  />
+                ))}
+              </div>
+              {totalPages > 1 ? (
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    disabled={currentPage <= 1}
+                    onClick={() => goToPage(currentPage - 1)}
+                    className="border border-ink/15 px-3 py-1.5 text-sm text-ink disabled:opacity-40"
+                  >
+                    이전
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((p) => {
+                      if (totalPages <= 7) return true;
+                      return (
+                        p === 1 ||
+                        p === totalPages ||
+                        Math.abs(p - currentPage) <= 1
+                      );
+                    })
+                    .map((p, idx, arr) => {
+                      const prev = arr[idx - 1];
+                      const showEllipsis = prev != null && p - prev > 1;
+                      return (
+                        <span key={p} className="contents">
+                          {showEllipsis ? (
+                            <span className="px-1 text-ink/40">…</span>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => goToPage(p)}
+                            className={`min-w-9 border px-2 py-1.5 text-sm tabular-nums ${
+                              p === currentPage
+                                ? "border-leaf bg-leaf text-white"
+                                : "border-ink/15 text-ink"
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        </span>
+                      );
+                    })}
+                  <button
+                    type="button"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => goToPage(currentPage + 1)}
+                    className="border border-ink/15 px-3 py-1.5 text-sm text-ink disabled:opacity-40"
+                  >
+                    다음
+                  </button>
+                </div>
+              ) : null}
+            </>
           )}
         </section>
       ) : selected.length > 0 ? (

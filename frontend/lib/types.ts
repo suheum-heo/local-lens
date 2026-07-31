@@ -23,6 +23,12 @@ export type RestaurantLabel =
   | "global_favorite"
   | "limited_data";
 
+export type RatingCoverage =
+  | "both"
+  | "kakao_only"
+  | "google_only"
+  | "none";
+
 export interface LocationCatalogItem {
   id: string;
   name: string;
@@ -77,6 +83,7 @@ export interface Restaurant {
   };
   scores: ScoreBundle;
   label: RestaurantLabel | null;
+  rating_coverage: RatingCoverage;
   source_area_ids?: string[];
 }
 

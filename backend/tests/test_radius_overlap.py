@@ -13,6 +13,8 @@ from app.domain.locations import (
 )
 from app.providers.mock_kakao import MockKakaoLocalProvider
 from app.domain.locations import SearchArea
+from app.providers.mock_google import MockGooglePlacesProvider
+from app.providers.mock_kakao import MockKakaoLocalProvider
 from app.services.search_orchestrator import SearchOrchestrator
 
 
@@ -78,7 +80,10 @@ async def test_mock_kakao_respects_radius():
 @pytest.mark.asyncio
 async def test_overlapping_stations_dedupe():
     """Hapjeong + Sangsu overlap should not duplicate shared Kakao places."""
-    orch = SearchOrchestrator()
+    orch = SearchOrchestrator(
+        kakao=MockKakaoLocalProvider(),
+        google=MockGooglePlacesProvider(),
+    )
     resp = await orch.search(
         SearchRequest(
             city=City.SEOUL,

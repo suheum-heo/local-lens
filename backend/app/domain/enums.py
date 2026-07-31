@@ -31,6 +31,15 @@ class RestaurantLabel(str, Enum):
     LIMITED_DATA = "limited_data"
 
 
+class RatingCoverage(str, Enum):
+    """Which platforms expose a numeric rating for this restaurant."""
+
+    BOTH = "both"
+    KAKAO_ONLY = "kakao_only"
+    GOOGLE_ONLY = "google_only"
+    NONE = "none"
+
+
 class City(str, Enum):
     SEOUL = "seoul"
     BUSAN = "busan"

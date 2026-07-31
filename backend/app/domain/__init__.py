@@ -3,6 +3,7 @@ from app.domain.enums import (
     DataAvailability,
     LocationMode,
     MatchConfidenceLevel,
+    RatingCoverage,
     RestaurantLabel,
 )
 from app.domain.locations import (
@@ -21,6 +22,7 @@ from app.domain.models import (
     Restaurant,
     ScoreBundle,
 )
+from app.domain.rating_coverage import classify_rating_coverage
 
 __all__ = [
     "City",
@@ -34,10 +36,12 @@ __all__ = [
     "NeighborhoodLocation",
     "PlaceMatchResult",
     "PlatformSignal",
+    "RatingCoverage",
     "Restaurant",
     "RestaurantLabel",
     "ScoreBundle",
     "SearchArea",
     "SearchRequestLocations",
     "StationLocation",
+    "classify_rating_coverage",
 ]

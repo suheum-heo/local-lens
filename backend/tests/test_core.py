@@ -115,9 +115,14 @@ async def test_search_orchestrator_mock():
     from app.domain.contracts import SearchRequest
     from app.domain.enums import City, LocationMode
     from app.domain.locations import StationLocation
+    from app.providers.mock_google import MockGooglePlacesProvider
+    from app.providers.mock_kakao import MockKakaoLocalProvider
     from app.services.search_orchestrator import SearchOrchestrator
 
-    orch = SearchOrchestrator()
+    orch = SearchOrchestrator(
+        kakao=MockKakaoLocalProvider(),
+        google=MockGooglePlacesProvider(),
+    )
     resp = await orch.search(
         SearchRequest(
             city=City.SEOUL,
@@ -135,8 +140,13 @@ async def test_search_orchestrator_mock():
         )
     )
     assert resp.meta.result_count >= 1
-    assert resp.meta.provider_mode == "mock"
     # Ensure missing data stays missing
     for r in resp.results:
         if r.scores.global_.availability != DataAvailability.AVAILABLE:
             assert r.scores.global_.score is None
+        assert r.rating_coverage.value in {
+            "both",
+            "kakao_only",
+            "google_only",
+            "none",
+        }

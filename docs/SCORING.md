@@ -70,8 +70,19 @@ No label is forced when evidence is weak.
 ## Live Kakao caveat
 
 The Kakao Local **keyword search** API does not return star ratings or review counts.
-In live mode, Local Score is typically `unavailable` until a richer Kakao enrichment
-source is added. Mock data includes synthetic Kakao ratings for UX development only.
+In live mode, Local Score is typically `unavailable` and `rating_coverage` is usually
+`google_only` or `none` — even when Kakao Map's consumer app shows reviews for the same place.
+This is an official API limitation, not a matching bug. Mock data includes synthetic Kakao
+ratings for UX development only.
+
+### Rating coverage categories
+
+| `rating_coverage` | Meaning |
+|-------------------|---------|
+| `both` | Kakao **and** Google numeric ratings present |
+| `kakao_only` | Kakao rating only |
+| `google_only` | Google rating only |
+| `none` | Neither side has a numeric rating |
 
 ## Changing the formula later
 
