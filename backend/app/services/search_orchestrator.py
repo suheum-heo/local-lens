@@ -1,4 +1,4 @@
-"""Search orchestration: locations → Kakao → dedupe → match → score."""
+"""Search orchestration: locations → Kakao → dedupe → enrich → match → score."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from app.normalization.restaurant import normalize_and_dedupe
 from app.providers.base import GooglePlacesProvider, KakaoLocalProvider
 from app.providers.errors import ApiCallCounter
 from app.providers.factory import get_google_provider, get_kakao_provider
+from app.providers.kakao_place_enricher import EnrichmentStats, KakaoPlaceEnricher
 from app.scoring.engine import ScoringEngine, SimpleScoringEngine
 
 
@@ -24,12 +25,19 @@ class SearchOrchestrator:
         matcher: PlaceMatcher | None = None,
         scoring: ScoringEngine | None = None,
         counter: ApiCallCounter | None = None,
+        enricher: KakaoPlaceEnricher | None = None,
+        *,
+        enable_kakao_enrichment: bool | None = None,
     ) -> None:
         self._counter = counter
         self._kakao = kakao or get_kakao_provider(counter=counter)
         self._google = google or get_google_provider(counter=counter)
         self._matcher = matcher or DefaultPlaceMatcher(self._google)
         self._scoring = scoring or SimpleScoringEngine()
+        if enable_kakao_enrichment is None:
+            enable_kakao_enrichment = not settings.use_mock_providers
+        self._enable_kakao_enrichment = enable_kakao_enrichment
+        self._enricher = enricher
 
     async def search(self, request: SearchRequest) -> SearchResponse:
         areas = [SearchArea.from_location(loc) for loc in request.locations]
@@ -39,8 +47,17 @@ class SearchOrchestrator:
             places = await self._kakao.search_restaurants(area, request.query)
             area_results.append((area.area_id, places))
 
-        # Dedupe BEFORE Google enrichment so each Kakao place is matched once.
+        # Dedupe BEFORE enrichment / Google matching so each Kakao place is
+        # processed once.
         candidates = normalize_and_dedupe(area_results)
+
+        enrichment_stats = EnrichmentStats()
+        if self._enable_kakao_enrichment:
+            enricher = self._enricher or KakaoPlaceEnricher(counter=self._counter)
+            enrichment_stats = await enricher.enrich_places(
+                [c.kakao for c in candidates]
+            )
+
         restaurants: list[Restaurant] = []
 
         for candidate in candidates:
@@ -67,7 +84,12 @@ class SearchOrchestrator:
             )
 
         restaurants.sort(key=_rank_key, reverse=True)
-        notices = _build_notices(restaurants, settings.provider_mode)
+        notices = _build_notices(
+            restaurants,
+            settings.provider_mode,
+            enrichment_stats=enrichment_stats,
+            enrichment_enabled=self._enable_kakao_enrichment,
+        )
 
         return SearchResponse(
             results=restaurants,
@@ -99,7 +121,13 @@ def _rank_key(r: Restaurant) -> tuple[float, float, float]:
     return (c, loc, glob)
 
 
-def _build_notices(restaurants: list[Restaurant], provider_mode: str) -> list[str]:
+def _build_notices(
+    restaurants: list[Restaurant],
+    provider_mode: str,
+    *,
+    enrichment_stats: EnrichmentStats | None = None,
+    enrichment_enabled: bool = False,
+) -> list[str]:
     notices: list[str] = []
     insufficient = sum(
         1
@@ -110,13 +138,30 @@ def _build_notices(restaurants: list[Restaurant], provider_mode: str) -> list[st
         1 for r in restaurants if r.scores.global_.availability.value == "unmatched"
     )
     kakao_ratings = sum(1 for r in restaurants if r.kakao.rating is not None)
+    stats = enrichment_stats or EnrichmentStats()
 
-    if provider_mode.lower() == "live" and restaurants and kakao_ratings == 0:
+    if enrichment_enabled and stats.attempted > 0:
         notices.append(
-            "Kakao Local API는 별점·후기 수를 반환하지 않습니다. "
-            "카카오맵 앱에 후기가 있어도 LocalLens에는 Kakao 평점이 표시되지 않으며, "
-            "이는 매칭 오류가 아닙니다."
+            f"카카오맵 평점 보강 — 성공 {stats.enriched}곳 · "
+            f"실패/미제공 {stats.failed}곳"
+            + (
+                f" · 한도 외 생략 {stats.skipped}곳"
+                if stats.skipped
+                else ""
+            )
+            + " (비공식 place-detail; 실패 시 평점은 비워 둡니다)."
         )
+    elif (
+        provider_mode.lower() == "live"
+        and restaurants
+        and kakao_ratings == 0
+        and enrichment_enabled
+    ):
+        notices.append(
+            "카카오맵 평점 보강이 이번 검색에서 평점을 채우지 못했습니다. "
+            "Local Score는 비워 두며, 이는 매칭 오류가 아닙니다."
+        )
+
     if insufficient:
         notices.append(
             f"{insufficient}곳의 식당은 Google 리뷰 데이터가 충분하지 않아 "

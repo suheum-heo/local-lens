@@ -44,9 +44,26 @@ Billing uses Places API (New) SKUs (Text Search / Place Details). Legacy Find Pl
 
 **Supplies:** Kakao place id, name, address / road address, coordinates, category, place URL.
 
-**Does not supply:** star ratings or review counts. Local Score stays `unavailable` in live mode unless a future enrichment source is added. Candidate discovery ≠ Kakao rating availability.
+**Does not supply:** star ratings or review counts. Discovery ≠ Kakao rating availability. Ratings come from a separate unofficial enrichment step (below).
 
 **Pagination:** up to **3 pages × 15** results per `SearchArea` (≤ 45). Stops early when `meta.is_end` is true.
+
+### Kakao Map place-detail enrichment (unofficial)
+
+Official Local APIs do not expose map reviews. After keyword discovery + dedupe, live mode calls a **public but unofficial** Kakao Map place-panel endpoint to fill `rating` / `review_count` when present:
+
+- `GET https://place-api.map.kakao.com/places/panel3/{kakao_place_id}`
+- Browser-like headers including `appVersion` and `pf=PC` (required by the host)
+- Parsed fields: `kakaomap_review.score_set.average_score`, `…review_count`
+
+**Behavior:**
+
+- Soft-fail per place (timeout / 404 / parse miss) → leave rating missing; never invent zeros
+- Request-scoped cache by place id; concurrency ≤ 5; enrich at most **40** unique places per search
+- Skipped entirely when `PROVIDER_MODE=mock` (fixtures already include ratings)
+- Counted as `api_calls.kakao_place_detail`
+
+**Risk:** Not a Kakao Developers product. Kakao has stated map reviews are not for third-party API use. The endpoint may break or block clients without notice. LocalLens documents this trade-off explicitly so Local vs Global scoring can work.
 
 **Neighborhoods:** searched as a radius around the catalog centroid. The official keyword API does not filter by administrative polygon; LocalLens does not claim a place is “inside” a dong beyond that radius evidence.
 
@@ -98,7 +115,8 @@ Index 0 is never assumed to be correct.
 POST /api/search
   → create_search_orchestrator()      # fresh providers + ApiCallCounter
   → Kakao keyword search              # once per SearchArea page
-  → normalize_and_dedupe              # by kakao_place_id (before Google)
+  → normalize_and_dedupe              # by kakao_place_id
+  → KakaoPlaceEnricher                # unofficial panel3 ratings (live only)
   → PlaceMatcher per unique Kakao place
        → Places Text Search (New)    # ≤ 1 per unique place (request-cached)
        → Places Details (New)         # only if rating/count missing after search
@@ -110,9 +128,10 @@ POST /api/search
 ```json
 {
   "kakao_keyword": 1,
+  "kakao_place_detail": 12,
   "google_search_text": 12,
   "google_details": 0,
-  "total": 13
+  "total": 25
 }
 ```
 
@@ -149,7 +168,7 @@ API keys and raw upstream exception bodies are never returned to the client.
 
 - Text Search location bias is soft (results can fall outside the 500 m circle).
 - Name transliteration differences can still produce false positives; confidence gate mitigates but does not eliminate them.
-- Kakao Local still provides no ratings → live Local Score usually `unavailable`.
+- Kakao Local discovery still has no ratings; Local Score depends on unofficial place-detail enrichment succeeding.
 - Legacy Places endpoints (Find Place / Place Details Legacy) are intentionally unused.
 
 ## Testing

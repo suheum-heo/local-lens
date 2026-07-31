@@ -150,7 +150,7 @@ export function RestaurantCard({
           reviewCount={scores.local.review_count ?? kakao.review_count}
           availability={scores.local.availability}
           explanation={scores.local.explanation}
-          emptyLabel="API 미제공"
+          emptyLabel="보강 불가"
         />
         <PlatformBlock
           title="Google"

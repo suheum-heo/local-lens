@@ -87,16 +87,15 @@ class SimpleScoringEngine(ScoringEngine):
         count = kakao.review_count
 
         if rating is None and count is None:
-            # Live Kakao Local keyword search does not return ratings.
+            # Official Local search omits ratings; enrichment may also soft-fail.
             return PlatformSignal(
                 availability=DataAvailability.UNAVAILABLE,
                 rating=None,
                 review_count=None,
                 score=None,
                 explanation=(
-                    "Kakao Local API는 별점/후기 수를 제공하지 않아 "
-                    "Local Score를 계산하지 않았습니다. "
-                    "(카카오맵 앱에 후기가 있어도 API로는 가져올 수 없습니다.)"
+                    "Kakao 평점 보강이 없거나 실패하여 Local Score를 "
+                    "계산하지 않았습니다. (없는 값은 0으로 채우지 않습니다.)"
                 ),
             )
 

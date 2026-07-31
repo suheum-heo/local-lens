@@ -49,7 +49,7 @@ Normalized as `KakaoPlaceData`:
 - `address`, `road_address`
 - `latitude`, `longitude`
 - `category`, `place_url`
-- optional `rating`, `review_count` (present in mocks; often absent from live keyword API)
+- optional `rating`, `review_count` (mocks include them; live fills via unofficial place-detail enrichment when available)
 
 Internal `restaurant_id` is a UUID assigned at normalization time.
 

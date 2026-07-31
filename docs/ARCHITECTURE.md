@@ -41,6 +41,7 @@ SearchRequest
   → SearchArea[]          (stations or neighborhoods → common abstraction)
   → KakaoLocalProvider    (per area, keyword + radius)
   → normalize_and_dedupe  (by Kakao place id)
+  → KakaoPlaceEnricher    (unofficial place-detail ratings; live only)
   → PlaceMatcher          (Google candidate + confidence gate)
   → ScoringEngine         (availability-aware scores + labels)
   → SearchResponse
@@ -86,7 +87,7 @@ Missing or weak Google data is a first-class `DataAvailability` state:
 
 Scores are `null` when data is insufficient. We never coerce missing Google data to a zero rating.
 
-Kakao Local keyword search does **not** provide ratings; live Local Score is usually `unavailable`.
+Kakao Local keyword search does **not** provide ratings. Live Local Score depends on unofficial Kakao Map place-detail enrichment (soft-fail → missing).
 
 ## Extending to real APIs
 

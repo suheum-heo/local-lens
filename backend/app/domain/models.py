@@ -24,8 +24,8 @@ class KakaoPlaceData(BaseModel):
     longitude: float
     category: str | None = None
     place_url: str | None = None
-    # Kakao Local API does not expose star ratings in the standard place search;
-    # keep optional for future enrichment / mock realism.
+    # Official Local keyword search omits these; live mode may fill them via
+    # unofficial Kakao Map place-detail enrichment (or mock fixtures).
     rating: float | None = None
     review_count: int | None = None
 

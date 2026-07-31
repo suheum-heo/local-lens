@@ -87,7 +87,7 @@ Suggested first live validation (keeps Google usage small):
 
 - Seoul · 합정역 · radius **1 km** · query **맛집**
 
-**Important:** Kakao Local keyword search discovers candidates but **does not** return Kakao star ratings/reviews. In live mode, Local Score is typically `unavailable` while Global Score uses Google when a confident match exists.
+**Important:** Kakao Local keyword search discovers candidates but does **not** return star ratings. Live mode then enriches ratings via an **unofficial** Kakao Map place-detail endpoint (ToS / breakage risk). Failures leave Kakao ratings missing — never fabricated. Global Score still uses Google when a confident match exists.
 
 Live mode fails with a clear configuration error if keys are missing — it will not silently use mock data.
 

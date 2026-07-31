@@ -18,8 +18,8 @@ def classify_rating_coverage(
     - google_only: Google rating only (matched)
     - none: neither side has a numeric rating
 
-    Note: Kakao Local keyword search does not return ratings, so live mode will
-    usually produce google_only / none — not a matching bug.
+    Note: Official Kakao Local keyword search omits ratings; live mode fills
+    them only when unofficial place-detail enrichment succeeds.
     """
     has_kakao = kakao.rating is not None
     has_google = (

@@ -5,7 +5,8 @@ Endpoint:
 
 Notes:
   - Keyword search returns place metadata (id, name, address, coords, category, URL).
-  - It does NOT return star ratings or review counts — those stay missing.
+  - It does NOT return star ratings or review counts — live mode may fill those via
+    ``KakaoPlaceEnricher`` (unofficial place-detail), not this provider.
   - Neighborhood searches use the catalog centroid + radius; Kakao does not expose
     official administrative-boundary filtering in this API.
 """

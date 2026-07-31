@@ -34,15 +34,20 @@ class ApiCallCounter:
 
     def __init__(self) -> None:
         self.kakao_keyword = 0
+        self.kakao_place_detail = 0
         self.google_search_text = 0
         self.google_details = 0
 
     def as_dict(self) -> dict[str, int]:
         return {
             "kakao_keyword": self.kakao_keyword,
+            "kakao_place_detail": self.kakao_place_detail,
             "google_search_text": self.google_search_text,
             "google_details": self.google_details,
             "total": (
-                self.kakao_keyword + self.google_search_text + self.google_details
+                self.kakao_keyword
+                + self.kakao_place_detail
+                + self.google_search_text
+                + self.google_details
             ),
         }

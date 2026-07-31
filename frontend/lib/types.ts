@@ -99,6 +99,7 @@ export interface SearchResponse {
     mode: LocationMode;
     api_calls?: {
       kakao_keyword: number;
+      kakao_place_detail: number;
       google_search_text: number;
       google_details: number;
       total: number;
