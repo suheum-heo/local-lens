@@ -168,7 +168,7 @@ API keys and raw upstream exception bodies are never returned to the client.
 ## Limitations
 
 - Text Search location bias is soft (results can fall outside the 500 m circle).
-- Name transliteration differences can still produce false positives; confidence gate mitigates but does not eliminate them.
+- Name transliteration: matcher romanizes Hangul and allows a tight geo+address fallback for Hangul↔Latin pairs; residual false negatives/positives are still possible.
 - Kakao Local discovery still has no ratings; Local Score depends on unofficial place-detail enrichment succeeding.
 - Legacy Places endpoints (Find Place / Place Details Legacy) are intentionally unused.
 

@@ -99,7 +99,7 @@ Request:
   "locations": [
     {
       "type": "station",
-      "station_id": "st_hapjeong",
+      "station_id": "st_hapjeong_…",
       "station_name": "합정역",
       "city": "seoul",
       "latitude": 37.5496,
@@ -113,9 +113,9 @@ Request:
 
 Response: `{ "results": Restaurant[], "meta": {...}, "notices": string[] }`
 
-### `GET /api/locations?city=seoul&mode=station`
+### `GET /api/locations?mode=station&nationwide=true`
 
-Returns catalog items for the UI multi-select.
+Returns the nationwide subway catalog (~780 stations from Kakao Local `SW8`, stored in `backend/app/data/stations.json`). Optional `city=` filters to one metro area. Neighborhood mode still requires `city`.
 
 ## Persistence (planned)
 

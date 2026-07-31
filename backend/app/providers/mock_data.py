@@ -1,106 +1,16 @@
-"""Shared mock catalog: stations, neighborhoods, and restaurants."""
+"""Shared mock restaurant fixtures + location catalog re-exports."""
 
 from __future__ import annotations
 
-from app.domain.enums import City, LocationMode
-from app.domain.contracts import LocationCatalogItem
 from app.domain.models import GooglePlaceData, KakaoPlaceData
+from app.providers.location_catalog import (
+    NEIGHBORHOODS,
+    catalog_for_city,
+    load_stations,
+)
 
-# ---------------------------------------------------------------------------
-# Location catalogs
-# ---------------------------------------------------------------------------
-
-STATIONS: list[LocationCatalogItem] = [
-    LocationCatalogItem(
-        id="st_hapjeong",
-        name="합정역",
-        name_en="Hapjeong Station",
-        city=City.SEOUL,
-        latitude=37.5496,
-        longitude=126.9139,
-        mode=LocationMode.STATION,
-    ),
-    LocationCatalogItem(
-        id="st_sangsu",
-        name="상수역",
-        name_en="Sangsu Station",
-        city=City.SEOUL,
-        latitude=37.5478,
-        longitude=126.9227,
-        mode=LocationMode.STATION,
-    ),
-    LocationCatalogItem(
-        id="st_hongdae",
-        name="홍대입구역",
-        name_en="Hongik University Station",
-        city=City.SEOUL,
-        latitude=37.5572,
-        longitude=126.9254,
-        mode=LocationMode.STATION,
-    ),
-    LocationCatalogItem(
-        id="st_gangnam",
-        name="강남역",
-        name_en="Gangnam Station",
-        city=City.SEOUL,
-        latitude=37.4979,
-        longitude=127.0276,
-        mode=LocationMode.STATION,
-    ),
-    LocationCatalogItem(
-        id="st_sinnonhyeon",
-        name="신논현역",
-        name_en="Sinnonhyeon Station",
-        city=City.SEOUL,
-        latitude=37.5045,
-        longitude=127.0250,
-        mode=LocationMode.STATION,
-    ),
-]
-
-NEIGHBORHOODS: list[LocationCatalogItem] = [
-    LocationCatalogItem(
-        id="nb_samsan",
-        name="삼산동",
-        name_en="Samsan-dong",
-        city=City.ULSAN,
-        latitude=35.5412,
-        longitude=129.3380,
-        mode=LocationMode.NEIGHBORHOOD,
-    ),
-    LocationCatalogItem(
-        id="nb_daldong",
-        name="달동",
-        name_en="Dal-dong",
-        city=City.ULSAN,
-        latitude=35.5350,
-        longitude=129.3220,
-        mode=LocationMode.NEIGHBORHOOD,
-    ),
-    LocationCatalogItem(
-        id="nb_hyoja",
-        name="효자동",
-        name_en="Hyoja-dong",
-        city=City.JEONJU,
-        latitude=35.8400,
-        longitude=127.1200,
-        mode=LocationMode.NEIGHBORHOOD,
-    ),
-    LocationCatalogItem(
-        id="nb_seosin",
-        name="서신동",
-        name_en="Seosin-dong",
-        city=City.JEONJU,
-        latitude=35.8330,
-        longitude=127.1150,
-        mode=LocationMode.NEIGHBORHOOD,
-    ),
-]
-
-
-def catalog_for_city(city: City, mode: LocationMode) -> list[LocationCatalogItem]:
-    source = STATIONS if mode == LocationMode.STATION else NEIGHBORHOODS
-    return [item for item in source if item.city == city]
+# Backward-compatible aliases for tests/imports.
+STATIONS = list(load_stations())
 
 
 # ---------------------------------------------------------------------------

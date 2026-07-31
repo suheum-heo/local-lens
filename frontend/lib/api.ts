@@ -13,8 +13,15 @@ const API_BASE =
 export async function fetchLocations(
   city: City,
   mode: LocationMode,
+  options?: { nationwide?: boolean },
 ): Promise<LocationCatalogItem[]> {
-  const url = `${API_BASE}/api/locations?city=${city}&mode=${mode}`;
+  const params = new URLSearchParams({ mode });
+  if (mode === "station" && options?.nationwide !== false) {
+    params.set("nationwide", "true");
+  } else {
+    params.set("city", city);
+  }
+  const url = `${API_BASE}/api/locations?${params}`;
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`Failed to load locations (${res.status})`);

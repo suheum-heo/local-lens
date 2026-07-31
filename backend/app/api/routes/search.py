@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Query
 from app.domain.contracts import LocationCatalogItem, SearchRequest, SearchResponse
 from app.domain.enums import City, LocationMode
 from app.providers.errors import ProviderAPIError, ProviderConfigError
-from app.providers.mock_data import catalog_for_city
+from app.providers.location_catalog import catalog_for_city
 from app.services.search_orchestrator import create_search_orchestrator
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,8 @@ async def search_restaurants(body: SearchRequest) -> SearchResponse:
                     f"'{body.mode.value}'"
                 ),
             )
-        if loc.city != body.city:
+        # Station mode allows nationwide picks; city on the request is contextual.
+        if body.mode != LocationMode.STATION and loc.city != body.city:
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -58,7 +59,22 @@ async def search_restaurants(body: SearchRequest) -> SearchResponse:
 
 @router.get("/locations", response_model=list[LocationCatalogItem])
 async def list_locations(
-    city: City = Query(...),
     mode: LocationMode = Query(...),
+    city: City | None = Query(
+        None,
+        description="Optional city filter. Omit (or use nationwide) for all subway stations.",
+    ),
+    nationwide: bool = Query(
+        False,
+        description="When true with mode=station, return the full national catalog.",
+    ),
 ) -> list[LocationCatalogItem]:
-    return catalog_for_city(city, mode)
+    # Station picker defaults to nationwide so any station is searchable.
+    if mode == LocationMode.STATION and (nationwide or city is None):
+        return catalog_for_city(None, mode, nationwide=True)
+    if city is None:
+        raise HTTPException(
+            status_code=400,
+            detail="city is required when mode is neighborhood (or when not nationwide).",
+        )
+    return catalog_for_city(city, mode, nationwide=False)

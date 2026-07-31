@@ -55,7 +55,11 @@ Users select **subway stations** or **neighborhoods**. Both normalize to `Search
   - Neighborhoods: default **1000 m** in the MVP UI
 - `source_mode`, `source_id`, `label`, `city`
 
+Station picker uses a **nationwide** static catalog (`app/data/stations.json`, regenerated via `scripts/build_station_catalog.py`). Typing a station name searches all cities; the city dropdown only narrows the default list.
+
 Restaurant discovery only receives `SearchArea`. Multi-select is first-class: one search may include several stations or several neighborhoods. Overlaps are deduplicated by Kakao place id.
+
+Kakao→Google matching romanizes Hangul names so English Google `displayName`s (e.g. 명동교자 ↔ Myeongdong Kyoja) can still clear the confidence gate when nearby.
 
 The frontend keeps search configuration in the URL (`city`, `mode`, `locs`, `radius`, `q`, `run`) so refresh/share preserves the selection. Result cards and the map share selection state.
 

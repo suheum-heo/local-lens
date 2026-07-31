@@ -5,15 +5,20 @@ from __future__ import annotations
 import math
 import re
 from abc import ABC, abstractmethod
+from difflib import SequenceMatcher
 
 from app.domain.enums import MatchConfidenceLevel
 from app.domain.models import GooglePlaceData, KakaoPlaceData, PlaceMatchResult
+from app.matching.romanize import romanize_compact, romanize_hangul
 from app.providers.base import GooglePlacesProvider
 
 # Matches below this confidence are never silently accepted.
 MATCH_ACCEPT_THRESHOLD = 0.55
 MATCH_HIGH_THRESHOLD = 0.80
 MATCH_MEDIUM_THRESHOLD = 0.55
+# When Hangul vs Latin names diverge but the candidate is essentially the same
+# pin, lean on distance + address so English Google displayNames can still match.
+CROSS_SCRIPT_GEO_M = 80.0
 
 
 class PlaceMatcher(ABC):
@@ -100,9 +105,13 @@ def score_match(kakao: KakaoPlaceData, google: GooglePlaceData) -> float:
       - name similarity (0.55)
       - distance proximity (0.35)
       - address token overlap (0.10)
+
+    Cross-script pairs (Kakao Hangul vs Google English) also get a geo+address
+    reweight so romanization gaps do not force unmatched below 0.55.
     """
     name_sim = name_similarity(kakao.name, google.name)
 
+    dist: float | None = None
     if google.latitude is not None and google.longitude is not None:
         dist = haversine_m(
             kakao.latitude, kakao.longitude, google.latitude, google.longitude
@@ -116,7 +125,19 @@ def score_match(kakao: KakaoPlaceData, google: GooglePlaceData) -> float:
     addr_b = google.address or ""
     addr_sim = address_similarity(addr_a, addr_b) if addr_a and addr_b else 0.0
 
-    return round(name_sim * 0.55 + dist_score * 0.35 + addr_sim * 0.10, 4)
+    base = name_sim * 0.55 + dist_score * 0.35 + addr_sim * 0.10
+
+    if (
+        _scripts_diverge(kakao.name, google.name)
+        and dist is not None
+        and dist <= CROSS_SCRIPT_GEO_M
+        and addr_sim >= 0.25
+    ):
+        # name 0.25 / dist 0.55 / addr 0.20 — still needs a nearby pin + address cue
+        geo_fallback = name_sim * 0.25 + dist_score * 0.55 + addr_sim * 0.20
+        base = max(base, geo_fallback)
+
+    return round(base, 4)
 
 
 def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -129,6 +150,34 @@ def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 def name_similarity(a: str, b: str) -> float:
+    raw = _token_similarity(a, b)
+
+    # Romanize Hangul sides so 명동교자 ≈ Myeongdong Kyoja (g/k variants etc.).
+    ra, rb = romanize_hangul(a), romanize_hangul(b)
+    ca, cb = romanize_compact(a), romanize_compact(b)
+    roman = 0.0
+    if ra and rb:
+        roman = _token_similarity(ra, rb)
+    if ca and cb:
+        if ca == cb:
+            roman = max(roman, 1.0)
+        else:
+            ratio = SequenceMatcher(None, ca, cb).ratio()
+            if ratio >= 0.9:
+                roman = max(roman, 0.95)
+            elif ratio >= 0.8:
+                roman = max(roman, 0.85)
+            elif ratio >= 0.72:
+                roman = max(roman, 0.7)
+            elif ca in cb or cb in ca:
+                shorter = min(len(ca), len(cb))
+                if shorter >= 4:
+                    roman = max(roman, 0.85)
+
+    return max(raw, roman)
+
+
+def _token_similarity(a: str, b: str) -> float:
     ta, tb = _tokens(a), _tokens(b)
     if not ta or not tb:
         return 0.0
@@ -137,6 +186,18 @@ def name_similarity(a: str, b: str) -> float:
     if ca and cb and (ca in cb or cb in ca):
         jaccard = max(jaccard, 0.75)
     return jaccard
+
+
+def _scripts_diverge(a: str, b: str) -> bool:
+    """True when one side is Hangul-heavy and the other is Latin-heavy."""
+    def _flags(s: str) -> tuple[bool, bool]:
+        has_hangul = any("\uac00" <= ch <= "\ud7a3" for ch in s)
+        has_latin = any("a" <= ch.lower() <= "z" for ch in s if ch.isascii())
+        return has_hangul, has_latin
+
+    ah, al = _flags(a)
+    bh, bl = _flags(b)
+    return (ah and not al and bl and not bh) or (bh and not bl and al and not ah)
 
 
 def address_similarity(a: str, b: str) -> float:

@@ -67,6 +67,41 @@ def test_score_match_far_away_is_low():
     assert score_match(k, g) < 0.55
 
 
+def test_score_match_korean_vs_english_name():
+    """Hangul Kakao name vs English Google displayName should still match nearby."""
+    k = _kakao(
+        name="명동교자",
+        address="서울 중구 명동2가 25-2",
+        road_address="서울 중구 명동10길 29",
+        latitude=37.5636,
+        longitude=126.9869,
+    )
+    g = _google(
+        name="Myeongdong Kyoja",
+        address="29 Myeongdong 10-gil, Jung-gu, Seoul",
+        latitude=37.5636,
+        longitude=126.9869,
+    )
+    assert score_match(k, g) >= 0.55
+
+
+def test_score_match_english_name_far_away_rejected():
+    k = _kakao(
+        name="명동교자",
+        address="서울 중구 명동2가 25-2",
+        road_address="서울 중구 명동10길 29",
+        latitude=37.5636,
+        longitude=126.9869,
+    )
+    g = _google(
+        name="Myeongdong Kyoja",
+        address="Gangnam-daero",
+        latitude=37.4979,
+        longitude=127.0276,
+    )
+    assert score_match(k, g) < 0.55
+
+
 def test_global_insufficient_reviews_not_zero():
     engine = SimpleScoringEngine()
     match = PlaceMatchResult(

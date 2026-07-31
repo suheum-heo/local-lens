@@ -5,10 +5,15 @@ import { fetchLocations, searchRestaurants, toLocationPayload } from "@/lib/api"
 import {
   CITIES,
   DEFAULT_RADIUS_M,
+  NEIGHBORHOOD_ONLY_CITIES,
   STATION_RADIUS_OPTIONS_M,
   formatRadiusLabel,
   type StationRadiusM,
 } from "@/lib/constants";
+
+const CITY_LABEL: Record<string, string> = Object.fromEntries(
+  CITIES.map((c) => [c.value, c.label]),
+);
 import {
   parseSearchParams,
   writeSearchParamsToUrl,
@@ -64,7 +69,7 @@ export function SearchPage() {
     if (parsed.mode) {
       setMode(parsed.mode);
       skipNextCatalogClear.current = true;
-    } else if (parsed.city === "ulsan" || parsed.city === "jeonju") {
+    } else if (parsed.city && NEIGHBORHOOD_ONLY_CITIES.has(parsed.city)) {
       setMode("neighborhood");
       skipNextCatalogClear.current = true;
     }
@@ -81,10 +86,8 @@ export function SearchPage() {
   useEffect(() => {
     if (!hydrated) return;
     if (skipNextCatalogClear.current) return;
-    if (city === "ulsan" || city === "jeonju") {
+    if (NEIGHBORHOOD_ONLY_CITIES.has(city)) {
       setMode("neighborhood");
-    } else if (city === "seoul") {
-      setMode("station");
     }
   }, [city, hydrated]);
 
@@ -99,7 +102,9 @@ export function SearchPage() {
       setSelectedRestaurantId(null);
     }
 
-    fetchLocations(city, mode)
+    fetchLocations(city, mode, {
+      nationwide: mode === "station",
+    })
       .then((items) => {
         if (cancelled) return;
         setCatalog(items);
@@ -141,13 +146,20 @@ export function SearchPage() {
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return catalog;
-    return catalog.filter(
-      (item) =>
-        item.name.toLowerCase().includes(q) ||
-        (item.name_en?.toLowerCase().includes(q) ?? false),
-    );
-  }, [catalog, filter]);
+    // Station mode loads the nationwide catalog. With no query, show the
+    // selected city; once the user types, search every station.
+    let items = catalog;
+    if (mode === "station" && !q) {
+      items = catalog.filter((item) => item.city === city);
+    } else if (q) {
+      items = catalog.filter(
+        (item) =>
+          item.name.toLowerCase().includes(q) ||
+          (item.name_en?.toLowerCase().includes(q) ?? false),
+      );
+    }
+    return items.slice(0, 80);
+  }, [catalog, filter, mode, city]);
 
   const mapAreas = useMemo(
     () => areasFromSelection(selected, radiusM, mode),
@@ -194,6 +206,9 @@ export function SearchPage() {
       }
       return [...prev, item];
     });
+    if (item.mode === "station") {
+      setCity(item.city);
+    }
     setFilter("");
   }
 
@@ -216,8 +231,9 @@ export function SearchPage() {
     setCoverageFilter("all");
     setPage(1);
     try {
+      const requestCity = selected[0]?.city ?? city;
       const data = await searchRestaurants({
-        city,
+        city: requestCity,
         mode,
         locations: selected.map((item) =>
           toLocationPayload(item, mode === "station" ? radiusM : undefined),
@@ -225,8 +241,9 @@ export function SearchPage() {
         query: query.trim(),
       });
       setResult(data);
+      setCity(requestCity);
       writeSearchParamsToUrl({
-        city,
+        city: requestCity,
         mode,
         locationIds: selected.map((s) => s.id),
         radiusM,
@@ -368,15 +385,25 @@ export function SearchPage() {
           <input
             className="mt-2 w-full border border-ink/15 bg-white px-3 py-2 text-ink outline-none focus:border-leaf"
             placeholder={
-              mode === "station" ? "역 이름 검색…" : "동네 이름 검색…"
+              mode === "station"
+                ? "전국 지하철역 검색 (예: 서면, 동대구역)…"
+                : "동네 이름 검색…"
             }
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
+          {mode === "station" ? (
+            <p className="mt-1.5 text-xs text-ink/45">
+              기본은 선택한 도시 역 목록입니다. 이름을 입력하면 전국 역을
+              검색합니다.
+            </p>
+          ) : null}
           <ul className="mt-2 max-h-40 overflow-auto border border-ink/10 bg-white">
             {filtered.length === 0 ? (
               <li className="px-3 py-2 text-sm text-ink/45">
-                이 도시/유형에 대한 카탈로그가 없습니다.
+                {mode === "station"
+                  ? "검색된 역이 없습니다. 다른 이름을 입력해 보세요."
+                  : "이 도시/유형에 대한 카탈로그가 없습니다."}
               </li>
             ) : (
               filtered.map((item) => {
@@ -392,7 +419,9 @@ export function SearchPage() {
                     >
                       <span>{item.name}</span>
                       <span className="text-xs text-ink/40">
-                        {active ? "선택됨" : item.name_en}
+                        {active
+                          ? "선택됨"
+                          : CITY_LABEL[item.city] || item.name_en || item.city}
                       </span>
                     </button>
                   </li>
