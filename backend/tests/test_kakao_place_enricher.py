@@ -33,7 +33,7 @@ def _place(pid: str = "83301316", *, rating: float | None = None) -> KakaoPlaceD
     )
 
 
-def _panel3(
+def _review_tab(
     *,
     average_score: float | None = 4.0,
     review_count: int | None = 593,
@@ -43,11 +43,27 @@ def _panel3(
         score_set["average_score"] = average_score
     if review_count is not None:
         score_set["review_count"] = review_count
-    return {"kakaomap_review": {"score_set": score_set}}
+    return {"score_set": score_set}
 
 
-def test_parse_panel3_valid():
-    rating, count = parse_panel3_scores(_panel3())
+def _panel3_legacy(
+    *,
+    average_score: float | None = 4.0,
+    review_count: int | None = 593,
+) -> dict:
+    return {"kakaomap_review": {"score_set": _review_tab(
+        average_score=average_score, review_count=review_count
+    )["score_set"]}}
+
+
+def test_parse_review_tab_valid():
+    rating, count = parse_panel3_scores(_review_tab())
+    assert rating == 4.0
+    assert count == 593
+
+
+def test_parse_panel3_legacy_valid():
+    rating, count = parse_panel3_scores(_panel3_legacy())
     assert rating == 4.0
     assert count == 593
 
@@ -60,17 +76,17 @@ def test_parse_panel3_missing_score_set():
 
 def test_parse_panel3_malformed_values():
     assert parse_panel3_scores(
-        {"kakaomap_review": {"score_set": {"average_score": "x", "review_count": 3}}}
+        {"score_set": {"average_score": "x", "review_count": 3}}
     ) == (None, None)
 
 
 @pytest.mark.asyncio
 async def test_enricher_sets_rating_and_count():
     def handler(request: httpx.Request) -> httpx.Response:
-        assert "/places/panel3/83301316" in str(request.url)
+        assert "/places/tab/reviews/kakaomap/83301316" in str(request.url)
         assert request.headers.get("appVersion") == "6.6.0"
         assert request.headers.get("pf") == "PC"
-        return httpx.Response(200, json=_panel3())
+        return httpx.Response(200, json=_review_tab())
 
     counter = ApiCallCounter()
     enricher = KakaoPlaceEnricher(
@@ -146,7 +162,7 @@ async def test_enricher_caches_and_skips_existing_rating():
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls["n"] += 1
-        return httpx.Response(200, json=_panel3(average_score=3.8, review_count=10))
+        return httpx.Response(200, json=_review_tab(average_score=3.8, review_count=10))
 
     enricher = KakaoPlaceEnricher(transport=httpx.MockTransport(handler))
     a = _place("111")
@@ -175,7 +191,7 @@ async def test_enricher_respects_max_places_cap():
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls["n"] += 1
-        return httpx.Response(200, json=_panel3())
+        return httpx.Response(200, json=_review_tab())
 
     enricher = KakaoPlaceEnricher(
         transport=httpx.MockTransport(handler),
@@ -229,7 +245,7 @@ async def test_orchestrator_enrichment_enables_local_and_both_coverage():
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
-            200, json=_panel3(average_score=4.5, review_count=120)
+            200, json=_review_tab(average_score=4.5, review_count=120)
         )
 
     counter = ApiCallCounter()
@@ -298,7 +314,7 @@ async def test_orchestrator_skips_enrichment_in_mock_mode_flag():
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls["n"] += 1
-        return httpx.Response(200, json=_panel3())
+        return httpx.Response(200, json=_review_tab())
 
     enricher = KakaoPlaceEnricher(transport=httpx.MockTransport(handler))
     orch = SearchOrchestrator(

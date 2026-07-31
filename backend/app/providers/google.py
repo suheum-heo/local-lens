@@ -52,7 +52,7 @@ DETAILS_FIELD_MASK = ",".join(
     ]
 )
 
-REQUEST_TIMEOUT_S = 15.0
+REQUEST_TIMEOUT_S = 10.0
 LOCATION_BIAS_RADIUS_M = 500.0
 MAX_SEARCH_RESULTS = 5
 
@@ -78,6 +78,8 @@ class LiveGooglePlacesProvider(GooglePlacesProvider):
             tuple[str, float, float, str], list[GooglePlaceData]
         ] = {}
         self._details_cache: dict[str, GooglePlaceData | None] = {}
+        # Reused across concurrent match calls within one search request.
+        self._client: httpx.AsyncClient | None = None
 
     async def search_places(
         self,
@@ -163,6 +165,23 @@ class LiveGooglePlacesProvider(GooglePlacesProvider):
             self._details_cache[place.google_place_id] = place
         return place
 
+    def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                timeout=REQUEST_TIMEOUT_S,
+                transport=self._transport,
+                limits=httpx.Limits(
+                    max_connections=16,
+                    max_keepalive_connections=8,
+                ),
+            )
+        return self._client
+
+    async def aclose(self) -> None:
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
     async def _request_json(
         self,
         method: str,
@@ -180,27 +199,24 @@ class LiveGooglePlacesProvider(GooglePlacesProvider):
             )
 
         # Never log headers/body — they may include the API key.
-        async with httpx.AsyncClient(
-            timeout=REQUEST_TIMEOUT_S,
-            transport=self._transport,
-        ) as client:
-            try:
-                resp = await client.request(method, url, headers=headers, json=json_body)
-            except httpx.TimeoutException as exc:
-                raise ProviderAPIError(
-                    "Google Places API timed out. Please try again shortly.",
-                    provider="google",
-                    status_code=504,
-                    retryable=True,
-                ) from exc
-            except httpx.HTTPError as exc:
-                logger.warning("Google Places transport error: %s", type(exc).__name__)
-                raise ProviderAPIError(
-                    "Google Places API is temporarily unreachable.",
-                    provider="google",
-                    status_code=502,
-                    retryable=True,
-                ) from exc
+        client = self._get_client()
+        try:
+            resp = await client.request(method, url, headers=headers, json=json_body)
+        except httpx.TimeoutException as exc:
+            raise ProviderAPIError(
+                "Google Places API timed out. Please try again shortly.",
+                provider="google",
+                status_code=504,
+                retryable=True,
+            ) from exc
+        except httpx.HTTPError as exc:
+            logger.warning("Google Places transport error: %s", type(exc).__name__)
+            raise ProviderAPIError(
+                "Google Places API is temporarily unreachable.",
+                provider="google",
+                status_code=502,
+                retryable=True,
+            ) from exc
 
         if resp.status_code in {401, 403}:
             raise ProviderAPIError(

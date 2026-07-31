@@ -1,7 +1,7 @@
 """Unofficial Kakao Map place-detail enrichment for ratings.
 
 Official Kakao Local keyword search does not return star ratings. This module
-fetches public Kakao Map place-panel JSON to populate rating / review_count
+fetches public Kakao Map review-tab JSON to populate rating / review_count
 when present.
 
 Risk: this endpoint is not an official Kakao developer API. It may break or
@@ -22,10 +22,14 @@ from app.providers.errors import ApiCallCounter
 
 logger = logging.getLogger(__name__)
 
-PANEL3_URL = "https://place-api.map.kakao.com/places/panel3/{place_id}"
+# Lighter than panel3 (~40KB / ~150–300ms vs ~76KB / ~500ms+) while still
+# exposing score_set.average_score + review_count.
+REVIEW_TAB_URL = (
+    "https://place-api.map.kakao.com/places/tab/reviews/kakaomap/{place_id}"
+)
 APP_VERSION = "6.6.0"
-REQUEST_TIMEOUT_S = 10.0
-DEFAULT_CONCURRENCY = 5
+REQUEST_TIMEOUT_S = 4.0
+DEFAULT_CONCURRENCY = 12
 DEFAULT_MAX_PLACES = 40
 
 
@@ -40,7 +44,7 @@ class EnrichmentStats:
 
 
 class KakaoPlaceEnricher:
-    """Enrich KakaoPlaceData.rating / review_count via place-api panel3."""
+    """Enrich KakaoPlaceData.rating / review_count via place-api review tab."""
 
     def __init__(
         self,
@@ -94,6 +98,10 @@ class KakaoPlaceEnricher:
             timeout=self._timeout_s,
             transport=self._transport,
             headers=_request_headers(),
+            limits=httpx.Limits(
+                max_connections=self._concurrency,
+                max_keepalive_connections=self._concurrency,
+            ),
         ) as client:
 
             async def _one(place: KakaoPlaceData) -> None:
@@ -130,7 +138,7 @@ class KakaoPlaceEnricher:
         if self._counter is not None:
             self._counter.kakao_place_detail += 1
 
-        url = PANEL3_URL.format(place_id=place_id)
+        url = REVIEW_TAB_URL.format(place_id=place_id)
         try:
             resp = await client.get(url)
         except httpx.TimeoutException:
@@ -160,13 +168,13 @@ class KakaoPlaceEnricher:
             self._cache[place_id] = result
             return result
 
-        parsed = parse_panel3_scores(data)
+        parsed = parse_place_detail_scores(data)
         self._cache[place_id] = parsed
         return parsed
 
 
-def parse_panel3_scores(data: Any) -> tuple[float | None, int | None]:
-    """Extract average_score / review_count from panel3 JSON.
+def parse_place_detail_scores(data: Any) -> tuple[float | None, int | None]:
+    """Extract average_score / review_count from review-tab or panel3 JSON.
 
     Returns (None, None) when fields are missing or non-numeric — never 0
     invented from absence.
@@ -174,11 +182,11 @@ def parse_panel3_scores(data: Any) -> tuple[float | None, int | None]:
     if not isinstance(data, dict):
         return (None, None)
 
-    review = data.get("kakaomap_review")
-    if not isinstance(review, dict):
-        return (None, None)
-
-    score_set = review.get("score_set")
+    score_set = data.get("score_set")
+    if not isinstance(score_set, dict):
+        review = data.get("kakaomap_review")
+        if isinstance(review, dict):
+            score_set = review.get("score_set")
     if not isinstance(score_set, dict):
         return (None, None)
 
@@ -202,6 +210,10 @@ def parse_panel3_scores(data: Any) -> tuple[float | None, int | None]:
     if rating is None:
         return (None, None)
     return (rating, count)
+
+
+# Back-compat alias for older tests/imports.
+parse_panel3_scores = parse_place_detail_scores
 
 
 def _request_headers() -> dict[str, str]:

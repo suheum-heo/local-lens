@@ -1,3 +1,4 @@
+import { googleMapUrl, kakaoMapUrl } from "@/lib/mapLinks";
 import type { RatingCoverage, Restaurant, RestaurantLabel } from "@/lib/types";
 
 const LABEL_KO: Record<RestaurantLabel, string> = {
@@ -43,6 +44,8 @@ function PlatformBlock({
   availability,
   explanation,
   emptyLabel,
+  mapHref,
+  mapLabel,
 }: {
   title: string;
   rating: number | null;
@@ -50,13 +53,27 @@ function PlatformBlock({
   availability: string;
   explanation: string | null;
   emptyLabel: string;
+  mapHref: string;
+  mapLabel: string;
 }) {
   // Show raw platform rating whenever present — even if score is insufficient.
   const showRating = rating != null;
 
   return (
     <div>
-      <div className="text-xs font-medium text-ink/50">{title}</div>
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="text-xs font-medium text-ink/50">{title}</div>
+        <a
+          href={mapHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+          className="shrink-0 text-xs font-medium text-leaf underline-offset-2 hover:underline"
+        >
+          {mapLabel}
+        </a>
+      </div>
       {showRating ? (
         <p className="mt-0.5 text-sm text-ink">
           <span className="font-semibold">{rating!.toFixed(1)}</span>
@@ -151,6 +168,8 @@ export function RestaurantCard({
           availability={scores.local.availability}
           explanation={scores.local.explanation}
           emptyLabel="보강 불가"
+          mapHref={kakaoMapUrl(restaurant)}
+          mapLabel="카카오맵"
         />
         <PlatformBlock
           title="Google"
@@ -161,6 +180,8 @@ export function RestaurantCard({
           availability={scores.global.availability}
           explanation={scores.global.explanation}
           emptyLabel="데이터 없음"
+          mapHref={googleMapUrl(restaurant)}
+          mapLabel="구글맵"
         />
       </div>
 

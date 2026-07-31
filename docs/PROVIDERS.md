@@ -50,16 +50,17 @@ Billing uses Places API (New) SKUs (Text Search / Place Details). Legacy Find Pl
 
 ### Kakao Map place-detail enrichment (unofficial)
 
-Official Local APIs do not expose map reviews. After keyword discovery + dedupe, live mode calls a **public but unofficial** Kakao Map place-panel endpoint to fill `rating` / `review_count` when present:
+Official Local APIs do not expose map reviews. After keyword discovery + dedupe, live mode calls a **public but unofficial** Kakao Map review-tab endpoint to fill `rating` / `review_count` when present:
 
-- `GET https://place-api.map.kakao.com/places/panel3/{kakao_place_id}`
+- `GET https://place-api.map.kakao.com/places/tab/reviews/kakaomap/{kakao_place_id}`
 - Browser-like headers including `appVersion` and `pf=PC` (required by the host)
-- Parsed fields: `kakaomap_review.score_set.average_score`, `…review_count`
+- Parsed fields: `score_set.average_score`, `score_set.review_count`
 
 **Behavior:**
 
 - Soft-fail per place (timeout / 404 / parse miss) → leave rating missing; never invent zeros
-- Request-scoped cache by place id; concurrency ≤ 5; enrich at most **40** unique places per search
+- Request-scoped cache by place id; concurrency ≤ 12; enrich at most **40** unique places per search
+- Runs **in parallel** with Google matching (ratings are not required for matching)
 - Skipped entirely when `PROVIDER_MODE=mock` (fixtures already include ratings)
 - Counted as `api_calls.kakao_place_detail`
 
@@ -116,9 +117,9 @@ POST /api/search
   → create_search_orchestrator()      # fresh providers + ApiCallCounter
   → Kakao keyword search              # once per SearchArea page
   → normalize_and_dedupe              # by kakao_place_id
-  → KakaoPlaceEnricher                # unofficial panel3 ratings (live only)
-  → PlaceMatcher per unique Kakao place
-       → Places Text Search (New)    # ≤ 1 per unique place (request-cached)
+  → KakaoPlaceEnricher ∥ PlaceMatcher # parallel (live enrich + Google match)
+       → review-tab ratings           # unofficial; ≤ 40 places, concurrency 12
+       → Places Text Search (New)    # ≤ 1 per unique place (cached; concurrency 8)
        → Places Details (New)         # only if rating/count missing after search
   → ScoringEngine
 ```

@@ -41,8 +41,7 @@ SearchRequest
   → SearchArea[]          (stations or neighborhoods → common abstraction)
   → KakaoLocalProvider    (per area, keyword + radius)
   → normalize_and_dedupe  (by Kakao place id)
-  → KakaoPlaceEnricher    (unofficial place-detail ratings; live only)
-  → PlaceMatcher          (Google candidate + confidence gate)
+  → KakaoPlaceEnricher ∥ PlaceMatcher  (ratings + Google match in parallel)
   → ScoringEngine         (availability-aware scores + labels)
   → SearchResponse
 ```

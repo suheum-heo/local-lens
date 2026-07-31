@@ -1,20 +1,26 @@
-"""Search orchestration: locations → Kakao → dedupe → enrich → match → score."""
+"""Search orchestration: locations → Kakao → dedupe → enrich∥match → score."""
 
 from __future__ import annotations
+
+import asyncio
 
 from app.config import settings
 from app.domain.contracts import SearchMeta, SearchRequest, SearchResponse
 from app.domain.enums import RatingCoverage
 from app.domain.locations import SearchArea
-from app.domain.models import Restaurant
+from app.domain.models import PlaceMatchResult, Restaurant
 from app.domain.rating_coverage import classify_rating_coverage
 from app.matching.place_matcher import DefaultPlaceMatcher, PlaceMatcher
-from app.normalization.restaurant import normalize_and_dedupe
+from app.normalization.restaurant import NormalizedCandidate, normalize_and_dedupe
 from app.providers.base import GooglePlacesProvider, KakaoLocalProvider
 from app.providers.errors import ApiCallCounter
 from app.providers.factory import get_google_provider, get_kakao_provider
 from app.providers.kakao_place_enricher import EnrichmentStats, KakaoPlaceEnricher
 from app.scoring.engine import ScoringEngine, SimpleScoringEngine
+
+# Google Text Search is the other major latency driver; bound concurrency
+# to stay under typical rate limits while overlapping with Kakao enrichment.
+GOOGLE_MATCH_CONCURRENCY = 8
 
 
 class SearchOrchestrator:
@@ -28,6 +34,7 @@ class SearchOrchestrator:
         enricher: KakaoPlaceEnricher | None = None,
         *,
         enable_kakao_enrichment: bool | None = None,
+        google_match_concurrency: int = GOOGLE_MATCH_CONCURRENCY,
     ) -> None:
         self._counter = counter
         self._kakao = kakao or get_kakao_provider(counter=counter)
@@ -38,30 +45,38 @@ class SearchOrchestrator:
             enable_kakao_enrichment = not settings.use_mock_providers
         self._enable_kakao_enrichment = enable_kakao_enrichment
         self._enricher = enricher
+        self._google_match_concurrency = max(1, google_match_concurrency)
 
     async def search(self, request: SearchRequest) -> SearchResponse:
         areas = [SearchArea.from_location(loc) for loc in request.locations]
 
-        area_results: list[tuple[str, list]] = []
-        for area in areas:
-            places = await self._kakao.search_restaurants(area, request.query)
-            area_results.append((area.area_id, places))
+        # Parallel keyword search across selected areas.
+        area_place_lists = await asyncio.gather(
+            *[
+                self._kakao.search_restaurants(area, request.query)
+                for area in areas
+            ]
+        )
+        area_results = [
+            (area.area_id, places)
+            for area, places in zip(areas, area_place_lists, strict=True)
+        ]
 
         # Dedupe BEFORE enrichment / Google matching so each Kakao place is
         # processed once.
         candidates = normalize_and_dedupe(area_results)
 
-        enrichment_stats = EnrichmentStats()
-        if self._enable_kakao_enrichment:
-            enricher = self._enricher or KakaoPlaceEnricher(counter=self._counter)
-            enrichment_stats = await enricher.enrich_places(
-                [c.kakao for c in candidates]
-            )
+        # Enrichment and Google matching are independent — overlap them.
+        enrichment_task = asyncio.create_task(
+            self._enrich_candidates(candidates)
+        )
+        matches_task = asyncio.create_task(self._match_candidates(candidates))
+        enrichment_stats, matches = await asyncio.gather(
+            enrichment_task, matches_task
+        )
 
         restaurants: list[Restaurant] = []
-
-        for candidate in candidates:
-            match = await self._matcher.match(candidate.kakao)
+        for candidate, match in zip(candidates, matches, strict=True):
             scores, label = self._scoring.score(candidate.kakao, match)
             coverage = classify_rating_coverage(candidate.kakao, match)
             restaurants.append(
@@ -105,6 +120,27 @@ class SearchOrchestrator:
             ),
             notices=notices,
         )
+
+    async def _enrich_candidates(
+        self, candidates: list[NormalizedCandidate]
+    ) -> EnrichmentStats:
+        if not self._enable_kakao_enrichment:
+            return EnrichmentStats()
+        enricher = self._enricher or KakaoPlaceEnricher(counter=self._counter)
+        return await enricher.enrich_places([c.kakao for c in candidates])
+
+    async def _match_candidates(
+        self, candidates: list[NormalizedCandidate]
+    ) -> list[PlaceMatchResult]:
+        if not candidates:
+            return []
+        sem = asyncio.Semaphore(self._google_match_concurrency)
+
+        async def _one(candidate: NormalizedCandidate) -> PlaceMatchResult:
+            async with sem:
+                return await self._matcher.match(candidate.kakao)
+
+        return list(await asyncio.gather(*[_one(c) for c in candidates]))
 
 
 def create_search_orchestrator() -> SearchOrchestrator:
