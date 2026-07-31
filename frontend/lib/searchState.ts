@@ -5,13 +5,17 @@ import {
   type StationRadiusM,
 } from "./constants";
 
+/**
+ * URL search-param helpers (optional / tests).
+ * The live SearchPage no longer hydrates or auto-runs from the URL on refresh.
+ */
 export interface SearchStateParams {
   city: City;
   mode: LocationMode;
   locationIds: string[];
   radiusM: StationRadiusM;
   query: string;
-  /** When true, restore should trigger an automatic search. */
+  /** Legacy flag; SearchPage ignores this on load. */
   run: boolean;
 }
 

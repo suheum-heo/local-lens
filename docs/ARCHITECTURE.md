@@ -61,7 +61,7 @@ Restaurant discovery only receives `SearchArea`. Multi-select is first-class: on
 
 Kakao→Google matching romanizes Hangul names so English Google `displayName`s (e.g. 명동교자 ↔ Myeongdong Kyoja) can still clear the confidence gate when nearby.
 
-The frontend keeps search configuration in the URL (`city`, `mode`, `locs`, `radius`, `q`, `run`) so refresh/share preserves the selection. Result cards and the map share selection state.
+Search form state is in-memory only: a full page refresh clears selections/results and does not auto-run a previous search. Result cards and the map share selection state within the session.
 
 
 ## Provider switching

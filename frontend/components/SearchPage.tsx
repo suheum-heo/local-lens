@@ -11,13 +11,6 @@ import {
   type StationRadiusM,
 } from "@/lib/constants";
 
-const CITY_LABEL: Record<string, string> = Object.fromEntries(
-  CITIES.map((c) => [c.value, c.label]),
-);
-import {
-  parseSearchParams,
-  writeSearchParamsToUrl,
-} from "@/lib/searchState";
 import type {
   City,
   LocationCatalogItem,
@@ -29,6 +22,10 @@ import type {
 import { RestaurantCard } from "./RestaurantCard";
 import { ResultsMapClient } from "./ResultsMapClient";
 import { areasFromSelection } from "@/lib/mapAreas";
+
+const CITY_LABEL: Record<string, string> = Object.fromEntries(
+  CITIES.map((c) => [c.value, c.label]),
+);
 
 const PAGE_SIZE = 10;
 
@@ -57,64 +54,33 @@ export function SearchPage() {
   >(null);
   const [coverageFilter, setCoverageFilter] = useState<CoverageFilter>("all");
   const [page, setPage] = useState(1);
-  const [hydrated, setHydrated] = useState(false);
-  const pendingLocationIds = useRef<string[] | null>(null);
-  const shouldAutoSearch = useRef(false);
-  const skipNextCatalogClear = useRef(false);
   const listRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const parsed = parseSearchParams(new URLSearchParams(window.location.search));
-    if (parsed.city) setCity(parsed.city);
-    if (parsed.mode) {
-      setMode(parsed.mode);
-      skipNextCatalogClear.current = true;
-    } else if (parsed.city && NEIGHBORHOOD_ONLY_CITIES.has(parsed.city)) {
-      setMode("neighborhood");
-      skipNextCatalogClear.current = true;
+    // Refresh / shared links must not restore a previous search session.
+    if (typeof window !== "undefined" && window.location.search) {
+      window.history.replaceState(null, "", window.location.pathname);
     }
-    if (parsed.radiusM) setRadiusM(parsed.radiusM);
-    if (parsed.query) setQuery(parsed.query);
-    if (parsed.locationIds?.length) {
-      pendingLocationIds.current = parsed.locationIds;
-      skipNextCatalogClear.current = true;
-    }
-    shouldAutoSearch.current = Boolean(parsed.run && parsed.locationIds?.length);
-    setHydrated(true);
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
-    if (skipNextCatalogClear.current) return;
     if (NEIGHBORHOOD_ONLY_CITIES.has(city)) {
       setMode("neighborhood");
     }
-  }, [city, hydrated]);
+  }, [city]);
 
   useEffect(() => {
-    if (!hydrated) return;
     let cancelled = false;
-
-    const preserveSelection = skipNextCatalogClear.current;
-    if (!preserveSelection) {
-      setSelected([]);
-      setResult(null);
-      setSelectedRestaurantId(null);
-    }
+    setSelected([]);
+    setResult(null);
+    setSelectedRestaurantId(null);
+    setError(null);
 
     fetchLocations(city, mode, {
       nationwide: mode === "station",
     })
       .then((items) => {
-        if (cancelled) return;
-        setCatalog(items);
-        const pending = pendingLocationIds.current;
-        if (pending?.length) {
-          const restored = items.filter((item) => pending.includes(item.id));
-          setSelected(restored);
-          pendingLocationIds.current = null;
-        }
-        skipNextCatalogClear.current = false;
+        if (!cancelled) setCatalog(items);
       })
       .catch((err: Error) => {
         if (!cancelled) setError(err.message);
@@ -123,26 +89,7 @@ export function SearchPage() {
     return () => {
       cancelled = true;
     };
-  }, [city, mode, hydrated]);
-
-  const syncUrl = useCallback(
-    (run = false) => {
-      writeSearchParamsToUrl({
-        city,
-        mode,
-        locationIds: selected.map((s) => s.id),
-        radiusM,
-        query,
-        run,
-      });
-    },
-    [city, mode, selected, radiusM, query],
-  );
-
-  useEffect(() => {
-    if (!hydrated) return;
-    syncUrl(Boolean(result));
-  }, [hydrated, syncUrl, result]);
+  }, [city, mode]);
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -242,14 +189,6 @@ export function SearchPage() {
       });
       setResult(data);
       setCity(requestCity);
-      writeSearchParamsToUrl({
-        city: requestCity,
-        mode,
-        locationIds: selected.map((s) => s.id),
-        radiusM,
-        query,
-        run: true,
-      });
     } catch (err) {
       setResult(null);
       setError(err instanceof Error ? err.message : "Search failed");
@@ -257,13 +196,6 @@ export function SearchPage() {
       setLoading(false);
     }
   }, [city, mode, selected, radiusM, query]);
-
-  useEffect(() => {
-    if (!hydrated || !shouldAutoSearch.current) return;
-    if (selected.length === 0) return;
-    shouldAutoSearch.current = false;
-    void runSearch();
-  }, [hydrated, selected, runSearch]);
 
   function selectRestaurant(restaurantId: string) {
     setSelectedRestaurantId(restaurantId);
