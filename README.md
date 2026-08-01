@@ -117,4 +117,65 @@ npm run build
 ## API
 
 `POST /api/search` — multi-location restaurant search  
-`GET /api/locations?city=seoul&mode=station` — location catalog for the UI
+`GET /api/locations?city=seoul&mode=station` — location catalog for the UI  
+`GET /api/restaurants/photo?photo_name=...` — Google Place photo proxy (API key stays server-side)
+
+## Deploy (Vercel + Railway, Live)
+
+Production layout:
+
+- **Frontend** — [Vercel](https://vercel.com), project root directory `frontend/`
+- **Backend** — [Railway](https://railway.app), service rooted at `backend/` (Docker via `backend/Dockerfile`)
+
+### 1. Backend on Railway
+
+1. Create a Railway project and a service from the `backend/` directory (Dockerfile builder).
+2. Set variables (never commit these):
+
+```env
+PROVIDER_MODE=live
+KAKAO_REST_API_KEY=...
+GOOGLE_PLACES_API_KEY=...
+CORS_ORIGINS=https://YOUR_VERCEL_DOMAIN
+```
+
+3. Deploy and note the public HTTPS URL (e.g. `https://local-lens-api.up.railway.app`).
+4. Confirm `GET /health` returns `"provider_mode": "live"`.
+
+CLI sketch:
+
+```bash
+cd backend
+npx @railway/cli login
+npx @railway/cli init    # or link an existing project
+npx @railway/cli variables set PROVIDER_MODE=live
+# set Kakao/Google keys and CORS_ORIGINS the same way
+npx @railway/cli up
+```
+
+### 2. Frontend on Vercel
+
+1. Import the GitHub repo (or `npx vercel` from `frontend/`).
+2. Set **Root Directory** to `frontend`.
+3. Set:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=https://YOUR_RAILWAY_BACKEND_URL
+```
+
+4. Deploy production. Then update Railway `CORS_ORIGINS` to the Vercel URL and redeploy the API if needed.
+
+CLI sketch:
+
+```bash
+cd frontend
+npx vercel login
+npx vercel link
+npx vercel env add NEXT_PUBLIC_API_BASE_URL production
+npx vercel --prod
+```
+
+### 3. Smoke check
+
+- Backend: `curl https://YOUR_RAILWAY_URL/health`
+- Frontend: open the Vercel URL → Seoul · 합정역 · 맛집 → results load with Kakao/Google signals
