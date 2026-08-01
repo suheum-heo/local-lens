@@ -120,17 +120,17 @@ npm run build
 `GET /api/locations?city=seoul&mode=station` — location catalog for the UI  
 `GET /api/restaurants/photo?photo_name=...` — Google Place photo proxy (API key stays server-side)
 
-## Deploy (Vercel + Railway, Live)
+## Deploy (Vercel + Render, Live)
 
 Production layout:
 
 - **Frontend** — [Vercel](https://vercel.com), project root directory `frontend/`
-- **Backend** — [Railway](https://railway.app), service rooted at `backend/` (Docker via `backend/Dockerfile`)
+- **Backend** — [Render](https://render.com), Docker service from [`render.yaml`](render.yaml) + [`backend/Dockerfile`](backend/Dockerfile)
 
-### 1. Backend on Railway
+### 1. Backend on Render
 
-1. Create a Railway project and a service from the `backend/` directory (Dockerfile builder).
-2. Set variables (never commit these):
+1. In the Render Dashboard: **New → Blueprint** → connect `suheum-heo/local-lens` (uses root `render.yaml`).
+2. Set secret env vars when prompted (never commit these):
 
 ```env
 PROVIDER_MODE=live
@@ -139,19 +139,12 @@ GOOGLE_PLACES_API_KEY=...
 CORS_ORIGINS=https://YOUR_VERCEL_DOMAIN
 ```
 
-3. Deploy and note the public HTTPS URL (e.g. `https://local-lens-api.up.railway.app`).
+`PROVIDER_MODE` is already set to `live` in `render.yaml`.
+
+3. Deploy and note the public URL (e.g. `https://local-lens-api.onrender.com`).
 4. Confirm `GET /health` returns `"provider_mode": "live"`.
 
-CLI sketch:
-
-```bash
-cd backend
-npx @railway/cli login
-npx @railway/cli init    # or link an existing project
-npx @railway/cli variables set PROVIDER_MODE=live
-# set Kakao/Google keys and CORS_ORIGINS the same way
-npx @railway/cli up
-```
+Free web services on Render spin down after idle; the first request after sleep can take ~30–60s.
 
 ### 2. Frontend on Vercel
 
@@ -160,10 +153,10 @@ npx @railway/cli up
 3. Set:
 
 ```env
-NEXT_PUBLIC_API_BASE_URL=https://YOUR_RAILWAY_BACKEND_URL
+NEXT_PUBLIC_API_BASE_URL=https://YOUR_RENDER_BACKEND_URL
 ```
 
-4. Deploy production. Then update Railway `CORS_ORIGINS` to the Vercel URL and redeploy the API if needed.
+4. Deploy production. Then update Render `CORS_ORIGINS` to the Vercel URL and redeploy the API if needed.
 
 CLI sketch:
 
@@ -177,5 +170,5 @@ npx vercel --prod
 
 ### 3. Smoke check
 
-- Backend: `curl https://YOUR_RAILWAY_URL/health`
+- Backend: `curl https://YOUR_RENDER_URL/health`
 - Frontend: open the Vercel URL → Seoul · 합정역 · 맛집 → results load with Kakao/Google signals
