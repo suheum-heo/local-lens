@@ -42,6 +42,28 @@ def _google(**kwargs) -> GooglePlaceData:
     return GooglePlaceData(**base)
 
 
+def test_empty_search_query_defaults_to_all_food():
+    from app.domain.contracts import DEFAULT_FOOD_QUERY, SearchRequest
+    from app.domain.enums import City, LocationMode
+    from app.domain.locations import StationLocation
+
+    req = SearchRequest(
+        city=City.SEOUL,
+        mode=LocationMode.STATION,
+        locations=[
+            StationLocation(
+                station_id="st_test",
+                station_name="합정역",
+                city=City.SEOUL,
+                latitude=37.5496,
+                longitude=126.9139,
+            )
+        ],
+        query="",
+    )
+    assert req.query == DEFAULT_FOOD_QUERY
+
+
 def test_dedupe_by_kakao_id():
     place = _kakao()
     results = normalize_and_dedupe(

@@ -2,19 +2,31 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.domain.enums import City, LocationMode, RestaurantLabel
 from app.domain.locations import LocationInput
 from app.domain.models import Restaurant
+
+# Empty food keyword → broad Kakao FD6 restaurant discovery.
+DEFAULT_FOOD_QUERY = "맛집"
 
 
 class SearchRequest(BaseModel):
     city: City
     mode: LocationMode
     locations: list[LocationInput] = Field(min_length=1)
-    query: str = Field(min_length=1, description="Restaurant category or keyword")
+    query: str = Field(
+        default="",
+        description="Restaurant category or keyword; empty means all food (맛집)",
+    )
     language: str = "ko"
+
+    @field_validator("query")
+    @classmethod
+    def empty_means_all_food(cls, v: str) -> str:
+        cleaned = (v or "").strip()
+        return cleaned if cleaned else DEFAULT_FOOD_QUERY
 
 
 class SearchMeta(BaseModel):

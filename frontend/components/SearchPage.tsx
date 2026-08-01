@@ -4,10 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchLocations, searchRestaurants, toLocationPayload } from "@/lib/api";
 import {
   CITIES,
+  DEFAULT_FOOD_QUERY,
   DEFAULT_RADIUS_M,
   LOCATION_MODES,
   SEARCH_RADIUS_OPTIONS_M,
   formatRadiusLabel,
+  locationSearchPlaceholder,
   type StationRadiusM,
 } from "@/lib/constants";
 
@@ -45,7 +47,7 @@ export function SearchPage() {
   const [selected, setSelected] = useState<LocationCatalogItem[]>([]);
   const [radiusM, setRadiusM] = useState<StationRadiusM>(DEFAULT_RADIUS_M);
   const [filter, setFilter] = useState("");
-  const [query, setQuery] = useState("삼겹살");
+  const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SearchResponse | null>(null);
@@ -57,6 +59,7 @@ export function SearchPage() {
   const [catalogLoading, setCatalogLoading] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
   const filterDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const keepSelectionOnCityChange = useRef(false);
 
   useEffect(() => {
     // Refresh / shared links must not restore a previous search session.
@@ -68,10 +71,14 @@ export function SearchPage() {
   // Reset selection when city/mode changes; load base catalog.
   useEffect(() => {
     let cancelled = false;
-    setSelected([]);
-    setResult(null);
-    setSelectedRestaurantId(null);
-    setFilter("");
+    const keepSelection = keepSelectionOnCityChange.current;
+    keepSelectionOnCityChange.current = false;
+    if (!keepSelection) {
+      setSelected([]);
+      setResult(null);
+      setSelectedRestaurantId(null);
+      setFilter("");
+    }
     setError(null);
     setCatalogLoading(true);
 
@@ -187,6 +194,7 @@ export function SearchPage() {
       return [...prev, item];
     });
     if (item.city && item.city !== city) {
+      keepSelectionOnCityChange.current = true;
       setCity(item.city);
     }
     setFilter("");
@@ -202,21 +210,18 @@ export function SearchPage() {
       setError("검색할 위치를 하나 이상 선택하세요.");
       return;
     }
-    if (!query.trim()) {
-      setError("검색어를 입력하세요.");
-      return;
-    }
     setLoading(true);
     setSelectedRestaurantId(null);
     setCoverageFilter("all");
     setPage(1);
     try {
       const requestCity = selected[0]?.city ?? city;
+      const foodQuery = query.trim() || DEFAULT_FOOD_QUERY;
       const data = await searchRestaurants({
         city: requestCity,
         mode,
         locations: selected.map((item) => toLocationPayload(item, radiusM)),
-        query: query.trim(),
+        query: foodQuery,
       });
       setResult(data);
       setCity(requestCity);
@@ -253,38 +258,60 @@ export function SearchPage() {
         </p>
       </header>
 
-      <section className="space-y-4 border-t border-ink/10 pt-6">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block text-sm">
-            <span className="text-ink/60">도시</span>
-            <select
-              className="mt-1 w-full border border-ink/15 bg-white px-3 py-2 text-ink outline-none focus:border-leaf"
-              value={city}
-              onChange={(e) => setCity(e.target.value as City)}
-            >
-              {CITIES.map((c) => (
-                <option key={c.value} value={c.value}>
+      <section className="space-y-5 border-t border-ink/10 pt-6">
+        <fieldset>
+          <legend className="text-base font-semibold text-ink">지역</legend>
+          <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="지역">
+            {CITIES.map((c) => {
+              const active = city === c.value;
+              return (
+                <button
+                  key={c.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => setCity(c.value)}
+                  className={`border px-3.5 py-2 text-sm font-medium transition ${
+                    active
+                      ? "border-leaf bg-leaf text-white shadow-sm"
+                      : "border-ink/20 bg-white text-ink hover:border-leaf/50 hover:bg-leaf/5"
+                  }`}
+                >
                   {c.label}
-                </option>
-              ))}
-            </select>
-          </label>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
 
-          <label className="block text-sm">
-            <span className="text-ink/60">위치 유형</span>
-            <select
-              className="mt-1 w-full border border-ink/15 bg-white px-3 py-2 text-ink outline-none focus:border-leaf"
-              value={mode}
-              onChange={(e) => setMode(e.target.value as LocationMode)}
-            >
-              {LOCATION_MODES.map((m) => (
-                <option key={m.value} value={m.value}>
+        <fieldset>
+          <legend className="text-base font-semibold text-ink">위치 유형</legend>
+          <div
+            className="mt-2 grid grid-cols-3 gap-2"
+            role="radiogroup"
+            aria-label="위치 유형"
+          >
+            {LOCATION_MODES.map((m) => {
+              const active = mode === m.value;
+              return (
+                <button
+                  key={m.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => setMode(m.value)}
+                  className={`border px-3 py-3 text-sm font-semibold transition sm:py-3.5 ${
+                    active
+                      ? "border-leaf bg-leaf text-white shadow-sm"
+                      : "border-ink/20 bg-white text-ink hover:border-leaf/50 hover:bg-leaf/5"
+                  }`}
+                >
                   {m.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
 
         <fieldset>
           <legend className="text-sm text-ink/60">검색 반경</legend>
@@ -342,21 +369,15 @@ export function SearchPage() {
 
           <input
             className="mt-2 w-full border border-ink/15 bg-white px-3 py-2 text-ink outline-none focus:border-leaf"
-            placeholder={
-              mode === "station"
-                ? "전국 지하철역 검색 (예: 서면, 동대구역)…"
-                : mode === "bus_stop"
-                  ? "버스정류장 이름 검색 (예: 합정역, 한옥마을)…"
-                  : "동 이름 검색 (예: 합정동, 효자동)…"
-            }
+            placeholder={locationSearchPlaceholder(city, mode)}
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
           <p className="mt-1.5 text-xs text-ink/45">
             {mode === "station"
-              ? "기본은 선택한 도시 역 목록입니다. 이름을 입력하면 전국 역을 검색합니다."
+              ? "기본은 선택한 지역 역 목록입니다. 이름을 입력하면 전국 역도 검색됩니다."
               : mode === "bus_stop"
-                ? "정류장 이름을 입력하면 주변 버스정류장을 찾습니다. (OpenStreetMap)"
+                ? "정류장 이름을 입력하면 선택한 지역 주변 버스정류장을 찾습니다."
                 : "동 이름을 입력하면 행정동/법정동을 찾습니다."}
             {catalogLoading ? " · 불러오는 중…" : ""}
           </p>
@@ -394,16 +415,21 @@ export function SearchPage() {
         </div>
 
         <label className="block text-sm">
-          <span className="text-ink/60">검색어 (카테고리 / 음식)</span>
+          <span className="text-base font-semibold text-ink">음식 / 키워드</span>
           <input
-            className="mt-1 w-full border border-ink/15 bg-white px-3 py-2 text-ink outline-none focus:border-leaf"
+            className="mt-2 w-full border border-ink/15 bg-white px-3 py-2 text-ink outline-none focus:border-leaf"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="예: 삼겹살"
+            placeholder={`비우면 모든 음식 · 예: 삼겹살, 카페, 국밥`}
             onKeyDown={(e) => {
               if (e.key === "Enter") void runSearch();
             }}
           />
+          <p className="mt-1.5 text-xs text-ink/45">
+            {query.trim()
+              ? `「${query.trim()}」로 검색합니다.`
+              : `비워 두면 모든 음식 종류(${DEFAULT_FOOD_QUERY})를 검색합니다.`}
+          </p>
         </label>
 
         <button
