@@ -90,7 +90,6 @@ export function SearchPage() {
   const listRef = useRef<HTMLDivElement | null>(null);
   const filterInputRef = useRef<HTMLInputElement | null>(null);
   const queryInputRef = useRef<HTMLInputElement | null>(null);
-  const suggestionListRef = useRef<HTMLUListElement | null>(null);
   const filterDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedRef = useRef<LocationCatalogItem[]>([]);
   const searchingRef = useRef(false);
@@ -98,14 +97,9 @@ export function SearchPage() {
   const catalogByIdRef = useRef<Map<string, LocationCatalogItem>>(new Map());
   const filterValueRef = useRef("");
   const addLocationRef = useRef<(item: LocationCatalogItem) => void>(() => {});
-  const composingRef = useRef(false);
-  const lastPointerRef = useRef({ x: 0, y: 0 });
   /** Same-id debounce only — must not block picking a different station next. */
   const lastPickedIdRef = useRef<{ id: string; at: number } | null>(null);
   const ignoreBlurPickUntilRef = useRef(0);
-  const imePointerDownRef = useRef(false);
-  /** After a successful pick, ignore IME compositionEnd recovery (list may reshuffle). */
-  const suppressImeRecoverRef = useRef(false);
 
   useEffect(() => {
     // Refresh / shared links must not restore a previous search session.
@@ -175,17 +169,31 @@ export function SearchPage() {
     const q = filter.trim().toLowerCase();
     if (mode === "station") {
       if (!q) {
-        // Show the full city catalog (Seoul alone is ~465). The old slice(0, 80)
-        // hid 합정/홍대/압구정/지행 등 — those required typing + IME, which made
-        // picks feel flaky compared to early alphabet stations like 강남.
+        // Full city catalog (Seoul ~465). Truncating hid 합정/홍대 등 so users
+        // had to type + fight IME for those stations.
         return catalog.filter((item) => item.city === city);
       }
-      return catalog
-        .filter(
-          (item) =>
-            item.name.toLowerCase().includes(q) ||
-            (item.name_en?.toLowerCase().includes(q) ?? false),
-        )
+      const matched = catalog.filter(
+        (item) =>
+          item.name.toLowerCase().includes(q) ||
+          (item.name_en?.toLowerCase().includes(q) ?? false),
+      );
+      // Prefer exact / prefix matches so "압구정" surfaces 압구정역 before
+      // 압구정로데오역, and short typed queries feel one-click reliable.
+      const rank = (item: LocationCatalogItem) => {
+        const name = item.name.toLowerCase();
+        const bare = name.replace(/역$/, "");
+        if (name === q || name === `${q}역` || bare === q) return 0;
+        if (name.startsWith(q) || bare.startsWith(q)) return 1;
+        if (item.name_en?.toLowerCase().startsWith(q)) return 2;
+        return 3;
+      };
+      return matched
+        .sort((a, b) => {
+          const d = rank(a) - rank(b);
+          if (d !== 0) return d;
+          return a.name.length - b.name.length || a.name.localeCompare(b.name, "ko");
+        })
         .slice(0, 120);
     }
     // bus_stop / neighborhood: catalog already comes from live/seed query
@@ -258,48 +266,24 @@ export function SearchPage() {
 
   /** Add from the suggestion list (idempotent). Deselect only via chip ×. */
   const addLocation = useCallback((item: LocationCatalogItem) => {
-    // Already selected: ignore quietly (no global lock — that blocked the next station).
     if (selectedRef.current.some((s) => s.id === item.id)) return;
 
     const now = Date.now();
     const last = lastPickedIdRef.current;
-    if (last && last.id === item.id && now - last.at < 350) return;
+    if (last && last.id === item.id && now - last.at < 400) return;
     lastPickedIdRef.current = { id: item.id, at: now };
-    ignoreBlurPickUntilRef.current = now + 500;
-    suppressImeRecoverRef.current = true;
+    ignoreBlurPickUntilRef.current = now + 600;
 
     setSelected((prev) => {
       if (prev.some((s) => s.id === item.id)) return prev;
       return [...prev, item];
     });
-
-    // Keep focus; clear the query on the next frame so IME compositionEnd
-    // still sees the row that was clicked if recovery races the clear.
-    window.requestAnimationFrame(() => {
-      setFilter("");
-      window.setTimeout(() => {
-        suppressImeRecoverRef.current = false;
-      }, 400);
-    });
+    setFilter("");
   }, []);
 
   useEffect(() => {
     addLocationRef.current = addLocation;
   }, [addLocation]);
-
-  function locationAtClientPoint(
-    x: number,
-    y: number,
-  ): LocationCatalogItem | null {
-    const ul = suggestionListRef.current;
-    if (!ul) return null;
-    const el = document.elementFromPoint(x, y) as HTMLElement | null;
-    const row = el?.closest?.(
-      "[data-location-id]",
-    ) as HTMLElement | null;
-    if (!row || !ul.contains(row)) return null;
-    return locationById(row.getAttribute("data-location-id"));
-  }
 
   function resolveBlurSelection(): LocationCatalogItem | null {
     const items = filteredRef.current;
@@ -316,85 +300,15 @@ export function SearchPage() {
     return null;
   }
 
-  /** Recover selection when IME swallows the click and only compositionend fires. */
-  function recoverImeSuggestionPick() {
-    if (suppressImeRecoverRef.current) return;
-    const { x, y } = lastPointerRef.current;
-    const under = locationAtClientPoint(x, y);
-    if (under) {
-      addLocationRef.current(under);
-      return;
-    }
-    // Only auto-pick on exact/unique query match — never "first row" (wrong station).
-    const choice = resolveBlurSelection();
-    if (choice) addLocationRef.current(choice);
+  /** Pick a row from the closed-over item — never re-resolve via a reshuffled list. */
+  function pickSuggestion(
+    item: LocationCatalogItem,
+    e?: { preventDefault(): void; stopPropagation(): void },
+  ) {
+    e?.preventDefault();
+    e?.stopPropagation();
+    addLocation(item);
   }
-
-  // Capture-phase listener: select by click coordinates, not event.target.
-  // During Korean IME composition the browser may drop/retarget the click so
-  // target is wrong — clientX/Y still point at the hovered suggestion.
-  useEffect(() => {
-    /** Only suppress the paired mousedown when pointerdown actually picked. */
-    let pickedOnPointerDown = false;
-
-    const trackPointer = (e: PointerEvent) => {
-      lastPointerRef.current = { x: e.clientX, y: e.clientY };
-    };
-
-    const pickFromCoords = (e: Event): boolean => {
-      const ul = suggestionListRef.current;
-      if (!ul) return false;
-      const pe = e as PointerEvent | MouseEvent;
-      if (!("clientX" in pe)) return false;
-      lastPointerRef.current = { x: pe.clientX, y: pe.clientY };
-      if (composingRef.current) imePointerDownRef.current = true;
-
-      const under = locationAtClientPoint(pe.clientX, pe.clientY);
-      const fromTarget = (() => {
-        const el = (e.target as HTMLElement | null)?.closest?.(
-          "[data-location-id]",
-        ) as HTMLElement | null;
-        if (!el || !ul.contains(el)) return null;
-        return locationById(el.getAttribute("data-location-id"));
-      })();
-      const item = under || fromTarget;
-      if (!item) return false;
-
-      e.preventDefault();
-      e.stopPropagation();
-      addLocationRef.current(item);
-      return true;
-    };
-
-    const onPointerDown = (e: Event) => {
-      pickedOnPointerDown = pickFromCoords(e);
-    };
-    const onMouseDown = (e: Event) => {
-      // Safari / IME paths may skip PointerEvent; avoid double-handling
-      // only when pointerdown already selected a station.
-      if (pickedOnPointerDown) {
-        pickedOnPointerDown = false;
-        return;
-      }
-      pickFromCoords(e);
-    };
-    const onPointerUp = () => {
-      pickedOnPointerDown = false;
-    };
-
-    document.addEventListener("pointermove", trackPointer, true);
-    document.addEventListener("pointerdown", onPointerDown, true);
-    document.addEventListener("mousedown", onMouseDown, true);
-    document.addEventListener("pointerup", onPointerUp, true);
-    document.addEventListener("pointercancel", onPointerUp, true);
-    return () => {
-      document.removeEventListener("pointermove", trackPointer, true);
-      document.removeEventListener("pointerdown", onPointerDown, true);
-      document.removeEventListener("mousedown", onMouseDown, true);
-      document.removeEventListener("pointerup", onPointerUp, true);
-      document.removeEventListener("pointercancel", onPointerUp, true);
-    };
-  }, []);
 
   function removeLocation(id: string) {
     setSelected((prev) => prev.filter((s) => s.id !== id));
@@ -605,44 +519,28 @@ export function SearchPage() {
           autoComplete="off"
           autoCorrect="off"
           spellCheck={false}
-          onCompositionStart={() => {
-            composingRef.current = true;
-            imePointerDownRef.current = false;
-          }}
           onCompositionEnd={() => {
-            composingRef.current = false;
-            const hadPointer = imePointerDownRef.current;
-            imePointerDownRef.current = false;
-            requestAnimationFrame(() => {
-              if (hadPointer) {
-                recoverImeSuggestionPick();
-                return;
-              }
-              const { x, y } = lastPointerRef.current;
-              const under = locationAtClientPoint(x, y);
-              if (under) {
-                const unique = resolveBlurSelection();
-                if (
-                  unique?.id === under.id ||
-                  filteredRef.current.length === 1
-                ) {
-                  addLocationRef.current(under);
-                  return;
-                }
-              }
+            // Unique exact-ish match after IME commit (e.g. 지행 → 지행역).
+            // Do not auto-pick when multiple rows match — that caused wrong stations.
+            window.requestAnimationFrame(() => {
+              if (Date.now() < ignoreBlurPickUntilRef.current) return;
+              const choice = resolveBlurSelection();
               if (
-                filteredRef.current.length === 1 &&
-                filterValueRef.current.trim().length >= 2
+                choice &&
+                filterValueRef.current.trim().length >= 2 &&
+                (filteredRef.current.length === 1 ||
+                  choice.name === filterValueRef.current.trim() ||
+                  choice.name === `${filterValueRef.current.trim()}역`)
               ) {
-                addLocationRef.current(filteredRef.current[0]);
+                addLocationRef.current(choice);
               }
             });
           }}
           onKeyDown={(e) => {
             if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
             e.preventDefault();
-            const first = filtered[0];
-            if (first) addLocation(first);
+            const choice = resolveBlurSelection() ?? filtered[0];
+            if (choice) addLocation(choice);
           }}
           onBlur={(e) => {
             if (Date.now() < ignoreBlurPickUntilRef.current) return;
@@ -660,19 +558,12 @@ export function SearchPage() {
             window.setTimeout(() => {
               if (Date.now() < ignoreBlurPickUntilRef.current) return;
               if (document.activeElement === filterInputRef.current) return;
-              const { x, y } = lastPointerRef.current;
-              const under = locationAtClientPoint(x, y);
-              if (under) {
-                addLocationRef.current(under);
-                return;
-              }
               const choice = resolveBlurSelection();
               if (choice) addLocationRef.current(choice);
             }, 0);
           }}
         />
         <ul
-          ref={suggestionListRef}
           className="mt-2 max-h-56 overflow-auto rounded-2xl bg-white ring-1 ring-line"
           role="listbox"
           aria-label={`${modeLabel} 검색 결과`}
@@ -689,29 +580,45 @@ export function SearchPage() {
             filtered.map((item) => {
               const active = selected.some((s) => s.id === item.id);
               return (
-                <li
-                  key={item.id}
-                  role="option"
-                  aria-selected={active}
-                  data-location-id={item.id}
-                  onPointerDown={(e) => {
-                    if (active) return;
-                    // Backup if document capture misses (still same-id debounced).
-                    e.preventDefault();
-                    addLocation(item);
-                  }}
-                  className={`flex w-full cursor-pointer touch-manipulation items-center justify-between px-4 py-2.5 text-left text-sm transition ${
-                    active
-                      ? "bg-brand/10 font-medium text-brand-dark"
-                      : "text-ink hover:bg-mist/80"
-                  }`}
-                >
-                  <span>{item.name}</span>
-                  <span className="text-xs text-mute">
-                    {active
-                      ? "선택됨"
-                      : CITY_LABEL[item.city] || item.name_en || item.city}
-                  </span>
+                <li key={item.id} role="presentation">
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    data-location-id={item.id}
+                    disabled={active}
+                    onPointerDown={(e) => {
+                      // Combobox pattern: pick on pointerdown + preventDefault so
+                      // Hangul IME / input blur cannot swallow the first tap.
+                      // Skip click handlers — clearing the filter unmounts this
+                      // row and a late click can land on a different station.
+                      if (e.button !== 0 || active) return;
+                      pickSuggestion(item, e);
+                    }}
+                    onMouseDown={(e) => {
+                      // Safari / some IME paths skip PointerEvent.
+                      if (e.button !== 0 || active) return;
+                      pickSuggestion(item, e);
+                    }}
+                    onKeyDown={(e) => {
+                      if (active) return;
+                      if (e.key !== "Enter" && e.key !== " ") return;
+                      e.preventDefault();
+                      pickSuggestion(item);
+                    }}
+                    className={`flex w-full touch-manipulation items-center justify-between px-4 py-2.5 text-left text-sm transition ${
+                      active
+                        ? "cursor-default bg-brand/10 font-medium text-brand-dark"
+                        : "cursor-pointer text-ink hover:bg-mist/80"
+                    }`}
+                  >
+                    <span>{item.name}</span>
+                    <span className="text-xs text-mute">
+                      {active
+                        ? "선택됨"
+                        : CITY_LABEL[item.city] || item.name_en || item.city}
+                    </span>
+                  </button>
                 </li>
               );
             })
