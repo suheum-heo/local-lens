@@ -9,7 +9,7 @@ export type City =
   | "jeonju"
   | "other";
 
-export type LocationMode = "station" | "neighborhood";
+export type LocationMode = "station" | "bus_stop" | "neighborhood";
 
 export type DataAvailability =
   | "available"
@@ -118,6 +118,16 @@ export interface StationLocationPayload {
   radius_m: number;
 }
 
+export interface BusStopLocationPayload {
+  type: "bus_stop";
+  bus_stop_id: string;
+  bus_stop_name: string;
+  city: City;
+  latitude: number;
+  longitude: number;
+  radius_m: number;
+}
+
 export interface NeighborhoodLocationPayload {
   type: "neighborhood";
   neighborhood_id: string;
@@ -130,4 +140,5 @@ export interface NeighborhoodLocationPayload {
 
 export type LocationPayload =
   | StationLocationPayload
+  | BusStopLocationPayload
   | NeighborhoodLocationPayload;

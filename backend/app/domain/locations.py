@@ -1,8 +1,8 @@
 """Location selection models.
 
 SearchArea is the common abstraction used by restaurant search so that
-downstream logic does not care whether locations came from subway stations
-or neighborhoods.
+downstream logic does not care whether locations came from subway stations,
+bus stops, or neighborhoods.
 """
 
 from __future__ import annotations
@@ -16,8 +16,9 @@ from app.domain.enums import City, LocationMode
 
 DEFAULT_SEARCH_RADIUS_M = 1000
 
-# Allowed radii for station-based searches (MVP UI options).
+# Allowed radii for pin-based searches (MVP UI options).
 STATION_RADIUS_OPTIONS_M: tuple[int, ...] = (500, 1000, 1500, 2000)
+SEARCH_RADIUS_OPTIONS_M = STATION_RADIUS_OPTIONS_M
 
 
 class StationLocation(BaseModel):
@@ -34,9 +35,30 @@ class StationLocation(BaseModel):
     @field_validator("radius_m")
     @classmethod
     def radius_allowed(cls, v: int) -> int:
-        if v not in STATION_RADIUS_OPTIONS_M:
+        if v not in SEARCH_RADIUS_OPTIONS_M:
             raise ValueError(
-                f"radius_m must be one of {list(STATION_RADIUS_OPTIONS_M)}"
+                f"radius_m must be one of {list(SEARCH_RADIUS_OPTIONS_M)}"
+            )
+        return v
+
+
+class BusStopLocation(BaseModel):
+    """Bus stop search anchor."""
+
+    type: Literal["bus_stop"] = "bus_stop"
+    bus_stop_id: str
+    bus_stop_name: str
+    city: City
+    latitude: float
+    longitude: float
+    radius_m: int = DEFAULT_SEARCH_RADIUS_M
+
+    @field_validator("radius_m")
+    @classmethod
+    def radius_allowed(cls, v: int) -> int:
+        if v not in SEARCH_RADIUS_OPTIONS_M:
+            raise ValueError(
+                f"radius_m must be one of {list(SEARCH_RADIUS_OPTIONS_M)}"
             )
         return v
 
@@ -54,14 +76,16 @@ class NeighborhoodLocation(BaseModel):
 
     @field_validator("radius_m")
     @classmethod
-    def radius_positive(cls, v: int) -> int:
-        if v <= 0:
-            raise ValueError("radius_m must be positive")
+    def radius_allowed(cls, v: int) -> int:
+        if v not in SEARCH_RADIUS_OPTIONS_M:
+            raise ValueError(
+                f"radius_m must be one of {list(SEARCH_RADIUS_OPTIONS_M)}"
+            )
         return v
 
 
 LocationInput = Annotated[
-    Union[StationLocation, NeighborhoodLocation],
+    Union[StationLocation, BusStopLocation, NeighborhoodLocation],
     Field(discriminator="type"),
 ]
 
@@ -82,7 +106,10 @@ class SearchArea(BaseModel):
     source_id: str
 
     @classmethod
-    def from_location(cls, loc: StationLocation | NeighborhoodLocation) -> SearchArea:
+    def from_location(
+        cls,
+        loc: StationLocation | BusStopLocation | NeighborhoodLocation,
+    ) -> SearchArea:
         if isinstance(loc, StationLocation):
             return cls(
                 label=loc.station_name,
@@ -92,6 +119,16 @@ class SearchArea(BaseModel):
                 radius_m=loc.radius_m,
                 source_mode=LocationMode.STATION,
                 source_id=loc.station_id,
+            )
+        if isinstance(loc, BusStopLocation):
+            return cls(
+                label=loc.bus_stop_name,
+                city=loc.city,
+                latitude=loc.latitude,
+                longitude=loc.longitude,
+                radius_m=loc.radius_m,
+                source_mode=LocationMode.BUS_STOP,
+                source_id=loc.bus_stop_id,
             )
         return cls(
             label=loc.neighborhood_name,
@@ -105,7 +142,7 @@ class SearchArea(BaseModel):
 
 
 class SearchRequestLocations(BaseModel):
-    """Multi-location search payload (stations OR neighborhoods)."""
+    """Multi-location search payload."""
 
     mode: LocationMode
     locations: list[LocationInput] = Field(min_length=1)

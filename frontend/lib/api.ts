@@ -13,13 +13,16 @@ const API_BASE =
 export async function fetchLocations(
   city: City,
   mode: LocationMode,
-  options?: { nationwide?: boolean },
+  options?: { nationwide?: boolean; q?: string },
 ): Promise<LocationCatalogItem[]> {
   const params = new URLSearchParams({ mode });
   if (mode === "station" && options?.nationwide !== false) {
     params.set("nationwide", "true");
   } else {
     params.set("city", city);
+  }
+  if (options?.q?.trim()) {
+    params.set("q", options.q.trim());
   }
   const url = `${API_BASE}/api/locations?${params}`;
   const res = await fetch(url);
@@ -62,6 +65,17 @@ export function toLocationPayload(
       radius_m: radiusM,
     };
   }
+  if (item.mode === "bus_stop") {
+    return {
+      type: "bus_stop",
+      bus_stop_id: item.id,
+      bus_stop_name: item.name,
+      city: item.city,
+      latitude: item.latitude,
+      longitude: item.longitude,
+      radius_m: radiusM,
+    };
+  }
   return {
     type: "neighborhood",
     neighborhood_id: item.id,
@@ -69,6 +83,6 @@ export function toLocationPayload(
     city: item.city,
     latitude: item.latitude,
     longitude: item.longitude,
-    radius_m: item.default_radius_m,
+    radius_m: radiusM,
   };
 }

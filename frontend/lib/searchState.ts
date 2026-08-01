@@ -42,7 +42,7 @@ export function parseSearchParams(
   }
 
   const mode = params.get("mode");
-  if (mode === "station" || mode === "neighborhood") {
+  if (mode === "station" || mode === "bus_stop" || mode === "neighborhood") {
     out.mode = mode;
   }
 

@@ -5,8 +5,8 @@ import { fetchLocations, searchRestaurants, toLocationPayload } from "@/lib/api"
 import {
   CITIES,
   DEFAULT_RADIUS_M,
-  NEIGHBORHOOD_ONLY_CITIES,
-  STATION_RADIUS_OPTIONS_M,
+  LOCATION_MODES,
+  SEARCH_RADIUS_OPTIONS_M,
   formatRadiusLabel,
   type StationRadiusM,
 } from "@/lib/constants";
@@ -54,7 +54,9 @@ export function SearchPage() {
   >(null);
   const [coverageFilter, setCoverageFilter] = useState<CoverageFilter>("all");
   const [page, setPage] = useState(1);
+  const [catalogLoading, setCatalogLoading] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const filterDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // Refresh / shared links must not restore a previous search session.
@@ -63,18 +65,15 @@ export function SearchPage() {
     }
   }, []);
 
-  useEffect(() => {
-    if (NEIGHBORHOOD_ONLY_CITIES.has(city)) {
-      setMode("neighborhood");
-    }
-  }, [city]);
-
+  // Reset selection when city/mode changes; load base catalog.
   useEffect(() => {
     let cancelled = false;
     setSelected([]);
     setResult(null);
     setSelectedRestaurantId(null);
+    setFilter("");
     setError(null);
+    setCatalogLoading(true);
 
     fetchLocations(city, mode, {
       nationwide: mode === "station",
@@ -84,6 +83,9 @@ export function SearchPage() {
       })
       .catch((err: Error) => {
         if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setCatalogLoading(false);
       });
 
     return () => {
@@ -91,22 +93,53 @@ export function SearchPage() {
     };
   }, [city, mode]);
 
+  // Bus / dong: live lookup as the user types (debounced).
+  useEffect(() => {
+    if (mode === "station") return;
+    const q = filter.trim();
+    let cancelled = false;
+    if (filterDebounce.current) clearTimeout(filterDebounce.current);
+
+    filterDebounce.current = setTimeout(() => {
+      setCatalogLoading(true);
+      fetchLocations(city, mode, { q: q || undefined })
+        .then((items) => {
+          if (!cancelled) setCatalog(items);
+        })
+        .catch((err: Error) => {
+          if (!cancelled) setError(err.message);
+        })
+        .finally(() => {
+          if (!cancelled) setCatalogLoading(false);
+        });
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      if (filterDebounce.current) clearTimeout(filterDebounce.current);
+    };
+  }, [filter, city, mode]);
+
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    // Station mode loads the nationwide catalog. With no query, show the
-    // selected city; once the user types, search every station.
     let items = catalog;
-    if (mode === "station" && !q) {
-      items = catalog.filter((item) => item.city === city);
-    } else if (q) {
-      items = catalog.filter(
-        (item) =>
-          item.name.toLowerCase().includes(q) ||
-          (item.name_en?.toLowerCase().includes(q) ?? false),
-      );
+    if (mode === "station") {
+      if (!q) {
+        items = catalog.filter((item) => item.city === city);
+      } else {
+        items = catalog.filter(
+          (item) =>
+            item.name.toLowerCase().includes(q) ||
+            (item.name_en?.toLowerCase().includes(q) ?? false),
+        );
+      }
     }
+    // bus_stop / neighborhood: catalog already comes from live/seed query
     return items.slice(0, 80);
   }, [catalog, filter, mode, city]);
+
+  const modeLabel =
+    LOCATION_MODES.find((m) => m.value === mode)?.label ?? "위치";
 
   const mapAreas = useMemo(
     () => areasFromSelection(selected, radiusM, mode),
@@ -153,7 +186,7 @@ export function SearchPage() {
       }
       return [...prev, item];
     });
-    if (item.mode === "station") {
+    if (item.city && item.city !== city) {
       setCity(item.city);
     }
     setFilter("");
@@ -182,16 +215,14 @@ export function SearchPage() {
       const data = await searchRestaurants({
         city: requestCity,
         mode,
-        locations: selected.map((item) =>
-          toLocationPayload(item, mode === "station" ? radiusM : undefined),
-        ),
+        locations: selected.map((item) => toLocationPayload(item, radiusM)),
         query: query.trim(),
       });
       setResult(data);
       setCity(requestCity);
     } catch (err) {
       setResult(null);
-      setError(err instanceof Error ? err.message : "Search failed");
+      setError(err instanceof Error ? err.message : "검색에 실패했습니다.");
     } finally {
       setLoading(false);
     }
@@ -246,48 +277,43 @@ export function SearchPage() {
               value={mode}
               onChange={(e) => setMode(e.target.value as LocationMode)}
             >
-              <option value="station">지하철역</option>
-              <option value="neighborhood">동네 / 행정동</option>
+              {LOCATION_MODES.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
             </select>
           </label>
         </div>
 
-        {mode === "station" ? (
-          <fieldset>
-            <legend className="text-sm text-ink/60">검색 반경</legend>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {STATION_RADIUS_OPTIONS_M.map((r) => {
-                const active = radiusM === r;
-                return (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRadiusM(r)}
-                    className={`border px-3 py-1.5 text-sm transition ${
-                      active
-                        ? "border-leaf bg-leaf text-white"
-                        : "border-ink/15 bg-white text-ink hover:border-leaf/40"
-                    }`}
-                  >
-                    {formatRadiusLabel(r)}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-1.5 text-xs text-ink/45">
-              선택한 모든 역에 동일 반경이 적용됩니다. 기본값 1 km.
-            </p>
-          </fieldset>
-        ) : (
-          <p className="text-xs text-ink/45">
-            동네 검색은 기본 반경 1 km를 사용합니다.
+        <fieldset>
+          <legend className="text-sm text-ink/60">검색 반경</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {SEARCH_RADIUS_OPTIONS_M.map((r) => {
+              const active = radiusM === r;
+              return (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRadiusM(r)}
+                  className={`border px-3 py-1.5 text-sm transition ${
+                    active
+                      ? "border-leaf bg-leaf text-white"
+                      : "border-ink/15 bg-white text-ink hover:border-leaf/40"
+                  }`}
+                >
+                  {formatRadiusLabel(r)}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-1.5 text-xs text-ink/45">
+            선택한 모든 위치에 동일 반경이 적용됩니다. 기본값 1 km.
           </p>
-        )}
+        </fieldset>
 
         <div>
-          <label className="block text-sm text-ink/60">
-            {mode === "station" ? "역 선택" : "동네 선택"}
-          </label>
+          <label className="block text-sm text-ink/60">{modeLabel} 선택</label>
 
           {selected.length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-2" aria-label="선택된 위치">
@@ -319,23 +345,27 @@ export function SearchPage() {
             placeholder={
               mode === "station"
                 ? "전국 지하철역 검색 (예: 서면, 동대구역)…"
-                : "동네 이름 검색…"
+                : mode === "bus_stop"
+                  ? "버스정류장 이름 검색 (예: 합정역, 한옥마을)…"
+                  : "동 이름 검색 (예: 합정동, 효자동)…"
             }
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
-          {mode === "station" ? (
-            <p className="mt-1.5 text-xs text-ink/45">
-              기본은 선택한 도시 역 목록입니다. 이름을 입력하면 전국 역을
-              검색합니다.
-            </p>
-          ) : null}
+          <p className="mt-1.5 text-xs text-ink/45">
+            {mode === "station"
+              ? "기본은 선택한 도시 역 목록입니다. 이름을 입력하면 전국 역을 검색합니다."
+              : mode === "bus_stop"
+                ? "정류장 이름을 입력하면 주변 버스정류장을 찾습니다. (OpenStreetMap)"
+                : "동 이름을 입력하면 행정동/법정동을 찾습니다."}
+            {catalogLoading ? " · 불러오는 중…" : ""}
+          </p>
           <ul className="mt-2 max-h-40 overflow-auto border border-ink/10 bg-white">
             {filtered.length === 0 ? (
               <li className="px-3 py-2 text-sm text-ink/45">
-                {mode === "station"
-                  ? "검색된 역이 없습니다. 다른 이름을 입력해 보세요."
-                  : "이 도시/유형에 대한 카탈로그가 없습니다."}
+                {mode === "bus_stop" && filter.trim().length < 2
+                  ? "정류장 이름을 두 글자 이상 입력해 주세요."
+                  : "검색된 위치가 없습니다. 다른 이름을 입력해 보세요."}
               </li>
             ) : (
               filtered.map((item) => {
@@ -382,7 +412,7 @@ export function SearchPage() {
           disabled={loading}
           className="w-full bg-leaf px-4 py-2.5 text-sm font-medium text-white transition hover:bg-leaf/90 disabled:opacity-60 sm:w-auto"
         >
-          {loading ? "검색 중…" : "Search"}
+          {loading ? "검색 중…" : "검색"}
         </button>
 
         {error ? (
@@ -401,7 +431,7 @@ export function SearchPage() {
             <p className="text-xs text-ink/40">
               provider: {result.meta.provider_mode} · areas:{" "}
               {result.meta.area_count} · candidates: {result.meta.candidate_count}
-              {mode === "station" ? ` · radius: ${formatRadiusLabel(radiusM)}` : ""}
+              {` · radius: ${formatRadiusLabel(radiusM)}`}
             </p>
           </div>
 
@@ -439,9 +469,7 @@ export function SearchPage() {
             })}
           </div>
           <p className="mb-4 text-xs text-ink/45">
-            분류 기준: Kakao/Google에 <em>숫자 평점</em>이 있는지. Kakao Local
-            API는 평점을 주지 않아 live에서는 대부분 &quot;구글만&quot;으로
-            보입니다.
+            분류 기준: Kakao/Google에 숫자 평점이 있는지입니다.
           </p>
 
           {mapAreas.length > 0 ? (

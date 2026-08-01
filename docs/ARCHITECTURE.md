@@ -48,14 +48,14 @@ SearchRequest
 
 ## Location abstraction
 
-Users select **subway stations** or **neighborhoods**. Both normalize to `SearchArea`:
+Users select a location mode — **지하철역**, **버스정류장**, or **동/동네** — all normalize to `SearchArea`:
 
-- `latitude`, `longitude`, `radius_m`
-  - Stations: UI options **500 / 1000 / 1500 / 2000 m** (default 1000)
-  - Neighborhoods: default **1000 m** in the MVP UI
+- `latitude`, `longitude`, `radius_m` (UI options **500 / 1000 / 1500 / 2000 m**)
 - `source_mode`, `source_id`, `label`, `city`
 
-Station picker uses a **nationwide** static catalog (`app/data/stations.json`, regenerated via `scripts/build_station_catalog.py`). Typing a station name searches all cities; the city dropdown only narrows the default list.
+- Stations: nationwide static catalog (`app/data/stations.json`)
+- Bus stops: live OpenStreetMap Overpass name search (Kakao Local does not expose bus stops)
+- Neighborhoods: Kakao address API for 동/읍/면, plus seed fixtures
 
 Restaurant discovery only receives `SearchArea`. Multi-select is first-class: one search may include several stations or several neighborhoods. Overlaps are deduplicated by Kakao place id.
 

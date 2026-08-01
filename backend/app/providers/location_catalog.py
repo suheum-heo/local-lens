@@ -12,8 +12,53 @@ from app.domain.enums import City, LocationMode
 _DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 _STATIONS_PATH = _DATA_DIR / "stations.json"
 
-# Small neighborhood seeds for cities without a full dong catalog yet.
+# Seed neighborhoods shown before the user types (live Kakao address fills more).
 NEIGHBORHOODS: list[LocationCatalogItem] = [
+    LocationCatalogItem(
+        id="nb_hapjeong",
+        name="합정동",
+        name_en="Hapjeong-dong",
+        city=City.SEOUL,
+        latitude=37.5496,
+        longitude=126.9139,
+        mode=LocationMode.NEIGHBORHOOD,
+    ),
+    LocationCatalogItem(
+        id="nb_seogyo",
+        name="서교동",
+        name_en="Seogyo-dong",
+        city=City.SEOUL,
+        latitude=37.5535,
+        longitude=126.9210,
+        mode=LocationMode.NEIGHBORHOOD,
+    ),
+    LocationCatalogItem(
+        id="nb_yeoksam",
+        name="역삼동",
+        name_en="Yeoksam-dong",
+        city=City.SEOUL,
+        latitude=37.5009,
+        longitude=127.0374,
+        mode=LocationMode.NEIGHBORHOOD,
+    ),
+    LocationCatalogItem(
+        id="nb_suji",
+        name="서면",
+        name_en="Seomyeon",
+        city=City.BUSAN,
+        latitude=35.1570,
+        longitude=129.0590,
+        mode=LocationMode.NEIGHBORHOOD,
+    ),
+    LocationCatalogItem(
+        id="nb_haeundae",
+        name="우동",
+        name_en="U-dong",
+        city=City.BUSAN,
+        latitude=35.1631,
+        longitude=129.1635,
+        mode=LocationMode.NEIGHBORHOOD,
+    ),
     LocationCatalogItem(
         id="nb_samsan",
         name="삼산동",
@@ -50,6 +95,64 @@ NEIGHBORHOODS: list[LocationCatalogItem] = [
         longitude=127.1150,
         mode=LocationMode.NEIGHBORHOOD,
     ),
+    LocationCatalogItem(
+        id="nb_dunsan",
+        name="둔산동",
+        name_en="Dunsan-dong",
+        city=City.DAEJEON,
+        latitude=36.3510,
+        longitude=127.3780,
+        mode=LocationMode.NEIGHBORHOOD,
+    ),
+    LocationCatalogItem(
+        id="nb_sangmu",
+        name="치평동",
+        name_en="Chipyeong-dong",
+        city=City.GWANGJU,
+        latitude=35.1520,
+        longitude=126.8400,
+        mode=LocationMode.NEIGHBORHOOD,
+    ),
+]
+
+# Small mock bus-stop seeds for offline / empty-query UX.
+BUS_STOP_SEEDS: list[LocationCatalogItem] = [
+    LocationCatalogItem(
+        id="bus_seed_hapjeong",
+        name="합정역",
+        name_en=None,
+        city=City.SEOUL,
+        latitude=37.5494,
+        longitude=126.9137,
+        mode=LocationMode.BUS_STOP,
+    ),
+    LocationCatalogItem(
+        id="bus_seed_hongdae",
+        name="홍대입구역",
+        name_en=None,
+        city=City.SEOUL,
+        latitude=37.5570,
+        longitude=126.9240,
+        mode=LocationMode.BUS_STOP,
+    ),
+    LocationCatalogItem(
+        id="bus_seed_seomyeon",
+        name="서면역",
+        name_en=None,
+        city=City.BUSAN,
+        latitude=35.1576,
+        longitude=129.0590,
+        mode=LocationMode.BUS_STOP,
+    ),
+    LocationCatalogItem(
+        id="bus_seed_jeonju_hanok",
+        name="한옥마을",
+        name_en=None,
+        city=City.JEONJU,
+        latitude=35.8150,
+        longitude=127.1530,
+        mode=LocationMode.BUS_STOP,
+    ),
 ]
 
 
@@ -85,17 +188,18 @@ def catalog_for_city(
     *,
     nationwide: bool = False,
 ) -> list[LocationCatalogItem]:
-    """Return catalog items.
-
-    For stations, ``nationwide=True`` (or city is None) returns the full subway
-    catalog so the UI can search any station. City filter still available for
-    narrower lists.
-    """
+    """Return static catalog seeds (stations / fixtures)."""
     if mode == LocationMode.STATION:
         stations = list(load_stations())
         if nationwide or city is None:
             return stations
         return [item for item in stations if item.city == city]
+
+    if mode == LocationMode.BUS_STOP:
+        seeds = BUS_STOP_SEEDS
+        if city is None:
+            return list(seeds)
+        return [item for item in seeds if item.city == city]
 
     if city is None:
         return list(NEIGHBORHOODS)

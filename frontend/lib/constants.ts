@@ -1,7 +1,9 @@
 /** Shared search UI constants. */
 
-export const STATION_RADIUS_OPTIONS_M = [500, 1000, 1500, 2000] as const;
-export type StationRadiusM = (typeof STATION_RADIUS_OPTIONS_M)[number];
+export const SEARCH_RADIUS_OPTIONS_M = [500, 1000, 1500, 2000] as const;
+/** @deprecated Use SEARCH_RADIUS_OPTIONS_M */
+export const STATION_RADIUS_OPTIONS_M = SEARCH_RADIUS_OPTIONS_M;
+export type StationRadiusM = (typeof SEARCH_RADIUS_OPTIONS_M)[number];
 export const DEFAULT_RADIUS_M: StationRadiusM = 1000;
 
 export const CITIES = [
@@ -15,8 +17,11 @@ export const CITIES = [
   { value: "jeonju" as const, label: "전주" },
 ];
 
-/** Cities without a subway catalog — neighborhood mode is preferred. */
-export const NEIGHBORHOOD_ONLY_CITIES = new Set(["jeonju"]);
+export const LOCATION_MODES = [
+  { value: "station" as const, label: "지하철역" },
+  { value: "bus_stop" as const, label: "버스정류장" },
+  { value: "neighborhood" as const, label: "동 / 동네" },
+];
 
 export function formatRadiusLabel(meters: number): string {
   if (meters >= 1000) {

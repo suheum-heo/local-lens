@@ -1,4 +1,4 @@
-import type { LocationCatalogItem } from "./types";
+import type { LocationCatalogItem, LocationMode } from "./types";
 
 export interface SearchAreaView {
   id: string;
@@ -11,13 +11,13 @@ export interface SearchAreaView {
 export function areasFromSelection(
   selected: LocationCatalogItem[],
   radiusM: number,
-  mode: "station" | "neighborhood",
+  _mode: LocationMode,
 ): SearchAreaView[] {
   return selected.map((item) => ({
     id: item.id,
     name: item.name,
     latitude: item.latitude,
     longitude: item.longitude,
-    radius_m: mode === "station" ? radiusM : item.default_radius_m,
+    radius_m: radiusM,
   }));
 }

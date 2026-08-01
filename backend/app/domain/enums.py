@@ -5,6 +5,7 @@ from enum import Enum
 
 class LocationMode(str, Enum):
     STATION = "station"
+    BUS_STOP = "bus_stop"
     NEIGHBORHOOD = "neighborhood"
 
 
