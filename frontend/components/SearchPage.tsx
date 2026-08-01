@@ -100,9 +100,13 @@ export function SearchPage() {
   /** Same-id debounce only — must not block picking a different station next. */
   const lastPickedIdRef = useRef<{ id: string; at: number } | null>(null);
   const ignoreBlurPickUntilRef = useRef(0);
-  /** Hangul IME: 1-char queries stay composing; first click only commits IME. */
+  /** Hangul IME: partial queries stay composing; first click only commits IME. */
   const composingRef = useRef(false);
-  const lastPointerRef = useRef({ x: 0, y: 0, downAt: 0 });
+  /** Real cursor position — IME may rewrite click clientX/Y onto the input. */
+  const cursorRef = useRef({ x: 0, y: 0 });
+  const lastPointerDownAtRef = useRef(0);
+  /** After compositionend, the confirming click may arrive a few ms later. */
+  const imePickArmUntilRef = useRef(0);
   const suggestionListRef = useRef<HTMLUListElement | null>(null);
 
   useEffect(() => {
@@ -328,27 +332,95 @@ export function SearchPage() {
     return locationById(row.getAttribute("data-location-id"));
   }
 
-  // While Hangul IME is composing (common after typing just 1 syllable), the
-  // browser spends the first click committing composition — often retargeted
-  // to the input — so the suggestion button never sees pointerdown.
-  // Capture the click coordinates and select the row under the cursor instead.
+  // Capture-phase pick: works even when IME steals/retargets the first tap
+  // (e.g. typing "지" / "동두" then clicking a row once).
   useEffect(() => {
-    const onPointerDown = (e: PointerEvent) => {
-      lastPointerRef.current = {
-        x: e.clientX,
-        y: e.clientY,
-        downAt: Date.now(),
-      };
-      if (!composingRef.current) return;
-      const item = locationAtClientPoint(e.clientX, e.clientY);
-      if (!item) return;
+    let pickedWithPointer = false;
+
+    const onPointerMove = (e: PointerEvent) => {
+      // Track the real cursor. Do not overwrite this from click events —
+      // Hangul IME may rewrite click clientX/Y onto the focused input.
+      cursorRef.current = { x: e.clientX, y: e.clientY };
+    };
+
+    const resolvePick = (e: Event): LocationCatalogItem | null => {
+      const t = e.target as HTMLElement | null;
+      const fromTarget = t?.closest?.(
+        "[data-location-id]",
+      ) as HTMLElement | null;
+      if (fromTarget && suggestionListRef.current?.contains(fromTarget)) {
+        return locationById(fromTarget.getAttribute("data-location-id"));
+      }
+      const pe = e as PointerEvent | MouseEvent;
+      const fromEvent =
+        "clientX" in pe
+          ? locationAtClientPoint(pe.clientX, pe.clientY)
+          : null;
+      if (fromEvent) return fromEvent;
+
+      // IME may retarget the tap onto the filter input (and rewrite coords).
+      // Only then fall back to the last real pointermove position.
+      const targetIsFilter =
+        t === filterInputRef.current ||
+        !!(t && filterInputRef.current?.contains(t));
+      const imeContext =
+        composingRef.current || Date.now() < imePickArmUntilRef.current;
+      if (!targetIsFilter && !imeContext) return null;
+      return locationAtClientPoint(cursorRef.current.x, cursorRef.current.y);
+    };
+
+    const tryPick = (e: Event): boolean => {
+      const pe = e as PointerEvent | MouseEvent;
+      if ("button" in pe && pe.button !== 0) return false;
+      lastPointerDownAtRef.current = Date.now();
+      const item = resolvePick(e);
+      if (!item) return false;
+      if (selectedRef.current.some((s) => s.id === item.id)) return false;
       e.preventDefault();
       e.stopPropagation();
       addLocationRef.current(item);
+      imePickArmUntilRef.current = 0;
+      return true;
     };
+
+    const onPointerDown = (e: Event) => {
+      pickedWithPointer = tryPick(e);
+    };
+    const onMouseDown = (e: Event) => {
+      // Safari / IME: pointerdown may be missing; skip if pointer already picked.
+      if (pickedWithPointer) {
+        pickedWithPointer = false;
+        e.preventDefault();
+        return;
+      }
+      tryPick(e);
+    };
+    const onPointerUp = (e: Event) => {
+      // Some IME paths suppress pointerdown/click but still deliver pointerup
+      // after compositionend — honor that within the arm window.
+      if (
+        !pickedWithPointer &&
+        (composingRef.current || Date.now() < imePickArmUntilRef.current)
+      ) {
+        tryPick(e);
+      }
+      pickedWithPointer = false;
+    };
+    const onPointerCancel = () => {
+      pickedWithPointer = false;
+    };
+
+    document.addEventListener("pointermove", onPointerMove, true);
     document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("mousedown", onMouseDown, true);
+    document.addEventListener("pointerup", onPointerUp, true);
+    document.addEventListener("pointercancel", onPointerCancel, true);
     return () => {
+      document.removeEventListener("pointermove", onPointerMove, true);
       document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("mousedown", onMouseDown, true);
+      document.removeEventListener("pointerup", onPointerUp, true);
+      document.removeEventListener("pointercancel", onPointerCancel, true);
     };
   }, []);
 
@@ -566,15 +638,17 @@ export function SearchPage() {
           }}
           onCompositionEnd={() => {
             composingRef.current = false;
-            // Click-to-confirm IME: pointerdown may have been retargeted to the
-            // input, so recover the row under the recent click coordinates.
-            // Keyboard-only commits (no recent pointerdown) must not auto-pick
-            // a hovered row when many matches exist (1-char queries).
+            // Chrome/Safari often fire compositionend BEFORE the confirming
+            // click. Arm a short window so the following pointerdown still
+            // selects via document capture (and recover from cursor position
+            // if the click coords were rewritten onto this input).
+            imePickArmUntilRef.current = Date.now() + 500;
             window.requestAnimationFrame(() => {
               if (Date.now() < ignoreBlurPickUntilRef.current) return;
-              const { x, y, downAt } = lastPointerRef.current;
-              if (Date.now() - downAt < 500) {
-                const under = locationAtClientPoint(x, y);
+              // Click landed in the same frame as compositionend.
+              if (Date.now() - lastPointerDownAtRef.current < 500) {
+                const under =
+                  locationAtClientPoint(cursorRef.current.x, cursorRef.current.y);
                 if (under) {
                   addLocationRef.current(under);
                   return;
@@ -592,32 +666,6 @@ export function SearchPage() {
                 addLocationRef.current(choice);
               }
             });
-          }}
-          onPointerDown={(e) => {
-            // IME often retargets the first tap onto this input while still
-            // composing (1-char case). Select the suggestion under the cursor.
-            lastPointerRef.current = {
-              x: e.clientX,
-              y: e.clientY,
-              downAt: Date.now(),
-            };
-            if (!composingRef.current) return;
-            const under = locationAtClientPoint(e.clientX, e.clientY);
-            if (!under) return;
-            e.preventDefault();
-            addLocation(under);
-          }}
-          onMouseDown={(e) => {
-            lastPointerRef.current = {
-              x: e.clientX,
-              y: e.clientY,
-              downAt: Date.now(),
-            };
-            if (!composingRef.current) return;
-            const under = locationAtClientPoint(e.clientX, e.clientY);
-            if (!under) return;
-            e.preventDefault();
-            addLocation(under);
           }}
           onKeyDown={(e) => {
             if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
@@ -641,10 +689,14 @@ export function SearchPage() {
             window.setTimeout(() => {
               if (Date.now() < ignoreBlurPickUntilRef.current) return;
               if (document.activeElement === filterInputRef.current) return;
-              // Prefer the row under the pointer (1-char + click-away path).
-              const { x, y, downAt } = lastPointerRef.current;
-              if (Date.now() - downAt < 500) {
-                const under = locationAtClientPoint(x, y);
+              if (
+                Date.now() < imePickArmUntilRef.current ||
+                Date.now() - lastPointerDownAtRef.current < 500
+              ) {
+                const under = locationAtClientPoint(
+                  cursorRef.current.x,
+                  cursorRef.current.y,
+                );
                 if (under) {
                   addLocationRef.current(under);
                   return;
