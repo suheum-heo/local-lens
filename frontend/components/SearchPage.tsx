@@ -207,6 +207,8 @@ export function SearchPage() {
     setCoverageFilter("all");
     setPage(1);
     try {
+      // Use the selected place's city for the API only — do not setCity here.
+      // setCity would re-run the city/mode effect and wipe selection + results.
       const requestCity = selected[0]?.city ?? city;
       const foodQuery = query.trim() || DEFAULT_FOOD_QUERY;
       const data = await searchRestaurants({
@@ -216,7 +218,6 @@ export function SearchPage() {
         query: foodQuery,
       });
       setResult(data);
-      setCity(requestCity);
     } catch (err) {
       setResult(null);
       setError(err instanceof Error ? err.message : "검색에 실패했습니다.");
@@ -387,7 +388,17 @@ export function SearchPage() {
                   <li key={item.id}>
                     <button
                       type="button"
-                      onClick={() => toggleLocation(item)}
+                      // mousedown + preventDefault: Korean IME / input blur otherwise
+                      // consumes the first click after typing a station name.
+                      onMouseDown={(e) => {
+                        if (e.button !== 0) return;
+                        e.preventDefault();
+                        toggleLocation(item);
+                      }}
+                      onClick={(e) => {
+                        // Keyboard activation synthesizes click with detail 0.
+                        if (e.detail === 0) toggleLocation(item);
+                      }}
                       className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-mist/80 ${
                         active ? "bg-leaf/10 text-leaf" : "text-ink"
                       }`}
@@ -414,7 +425,11 @@ export function SearchPage() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder={`비우면 모든 음식 · 예: 삼겹살, 카페, 국밥`}
             onKeyDown={(e) => {
-              if (e.key === "Enter") void runSearch();
+              // Ignore Enter while Korean IME composition is in progress.
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                void runSearch();
+              }
             }}
           />
           <p className="mt-1.5 text-xs text-ink/45">
@@ -426,8 +441,17 @@ export function SearchPage() {
 
         <button
           type="button"
-          onClick={() => void runSearch()}
           disabled={loading}
+          onMouseDown={(e) => {
+            // Same IME/blur issue as location chips: act on mousedown so the
+            // first press after typing a keyword runs search immediately.
+            if (e.button !== 0 || loading) return;
+            e.preventDefault();
+            void runSearch();
+          }}
+          onClick={(e) => {
+            if (e.detail === 0 && !loading) void runSearch();
+          }}
           className="w-full bg-leaf px-4 py-2.5 text-sm font-medium text-white transition hover:bg-leaf/90 disabled:opacity-60 sm:w-auto"
         >
           {loading ? "검색 중…" : "검색"}
