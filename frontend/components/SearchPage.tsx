@@ -58,7 +58,12 @@ export function SearchPage() {
   const [page, setPage] = useState(1);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const filterInputRef = useRef<HTMLInputElement | null>(null);
+  const queryInputRef = useRef<HTMLInputElement | null>(null);
   const filterDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const selectedRef = useRef<LocationCatalogItem[]>([]);
+  const pressLockRef = useRef(false);
+  const searchingRef = useRef(false);
 
   useEffect(() => {
     // Refresh / shared links must not restore a previous search session.
@@ -183,6 +188,10 @@ export function SearchPage() {
     setPage(1);
   }, [coverageFilter, result]);
 
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
+
   function toggleLocation(item: LocationCatalogItem) {
     setSelected((prev) => {
       if (prev.some((s) => s.id === item.id)) {
@@ -192,29 +201,51 @@ export function SearchPage() {
     });
   }
 
+  /** Select/deselect from the suggestion list in one gesture (no second tap). */
+  function pressLocation(item: LocationCatalogItem) {
+    if (pressLockRef.current) return;
+    pressLockRef.current = true;
+
+    toggleLocation(item);
+    // Blur immediately so IME/keyboard dismiss is part of this same gesture.
+    // Clear the filter only after the click sequence finishes — clearing too
+    // early reshuffles the list under the cursor and can steal mouseup/click.
+    filterInputRef.current?.blur();
+    window.setTimeout(() => {
+      setFilter("");
+      pressLockRef.current = false;
+    }, 400);
+  }
+
   function removeLocation(id: string) {
     setSelected((prev) => prev.filter((s) => s.id !== id));
   }
 
   const runSearch = useCallback(async () => {
+    if (searchingRef.current) return;
     setError(null);
-    if (selected.length === 0) {
+    const currentSelected = selectedRef.current;
+    if (currentSelected.length === 0) {
       setError("검색할 위치를 하나 이상 선택하세요.");
       return;
     }
+    searchingRef.current = true;
     setLoading(true);
     setSelectedRestaurantId(null);
     setCoverageFilter("all");
     setPage(1);
+    queryInputRef.current?.blur();
     try {
       // Use the selected place's city for the API only — do not setCity here.
       // setCity would re-run the city/mode effect and wipe selection + results.
-      const requestCity = selected[0]?.city ?? city;
+      const requestCity = currentSelected[0]?.city ?? city;
       const foodQuery = query.trim() || DEFAULT_FOOD_QUERY;
       const data = await searchRestaurants({
         city: requestCity,
         mode,
-        locations: selected.map((item) => toLocationPayload(item, radiusM)),
+        locations: currentSelected.map((item) =>
+          toLocationPayload(item, radiusM),
+        ),
         query: foodQuery,
       });
       setResult(data);
@@ -222,9 +253,10 @@ export function SearchPage() {
       setResult(null);
       setError(err instanceof Error ? err.message : "검색에 실패했습니다.");
     } finally {
+      searchingRef.current = false;
       setLoading(false);
     }
-  }, [city, mode, selected, radiusM, query]);
+  }, [city, mode, radiusM, query]);
 
   function selectRestaurant(restaurantId: string) {
     setSelectedRestaurantId(restaurantId);
@@ -252,6 +284,13 @@ export function SearchPage() {
       </header>
 
       <section className="space-y-5 border-t border-ink/10 pt-6">
+        <form
+          className="space-y-5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void runSearch();
+          }}
+        >
         <fieldset>
           <legend className="text-base font-semibold text-ink">지역</legend>
           <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="지역">
@@ -361,10 +400,20 @@ export function SearchPage() {
           )}
 
           <input
+            ref={filterInputRef}
             className="mt-2 w-full border border-ink/15 bg-white px-3 py-2 text-ink outline-none focus:border-leaf"
             placeholder={locationSearchPlaceholder(city, mode)}
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+              e.preventDefault();
+              const first = filtered[0];
+              if (first) pressLocation(first);
+            }}
           />
           <p className="mt-1.5 text-xs text-ink/45">
             {mode === "station"
@@ -388,18 +437,25 @@ export function SearchPage() {
                   <li key={item.id}>
                     <button
                       type="button"
-                      // mousedown + preventDefault: Korean IME / input blur otherwise
-                      // consumes the first click after typing a station name.
+                      data-location-id={item.id}
+                      // preventDefault on early pointer/mouse events keeps the
+                      // filter input from stealing the first tap (IME / keyboard
+                      // dismiss). pressLock prevents pointerdown+click double toggle.
+                      onPointerDown={(e) => {
+                        if (e.button !== 0) return;
+                        e.preventDefault();
+                        pressLocation(item);
+                      }}
                       onMouseDown={(e) => {
                         if (e.button !== 0) return;
                         e.preventDefault();
-                        toggleLocation(item);
+                        pressLocation(item);
                       }}
                       onClick={(e) => {
-                        // Keyboard activation synthesizes click with detail 0.
-                        if (e.detail === 0) toggleLocation(item);
+                        e.preventDefault();
+                        pressLocation(item);
                       }}
-                      className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-mist/80 ${
+                      className={`flex w-full cursor-pointer touch-manipulation items-center justify-between px-3 py-2 text-left text-sm hover:bg-mist/80 ${
                         active ? "bg-leaf/10 text-leaf" : "text-ink"
                       }`}
                     >
@@ -417,13 +473,17 @@ export function SearchPage() {
           </ul>
         </div>
 
-        <label className="block text-sm">
+        <div className="block text-sm">
           <span className="text-base font-semibold text-ink">음식 / 키워드</span>
           <input
+            ref={queryInputRef}
             className="mt-2 w-full border border-ink/15 bg-white px-3 py-2 text-ink outline-none focus:border-leaf"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={`비우면 모든 음식 · 예: 삼겹살, 카페, 국밥`}
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
             onKeyDown={(e) => {
               // Ignore Enter while Korean IME composition is in progress.
               if (e.key === "Enter" && !e.nativeEvent.isComposing) {
@@ -437,22 +497,22 @@ export function SearchPage() {
               ? `「${query.trim()}」로 검색합니다.`
               : `비워 두면 모든 음식 종류(${DEFAULT_FOOD_QUERY})를 검색합니다.`}
           </p>
-        </label>
+        </div>
 
         <button
-          type="button"
+          type="submit"
           disabled={loading}
-          onMouseDown={(e) => {
-            // Same IME/blur issue as location chips: act on mousedown so the
-            // first press after typing a keyword runs search immediately.
+          onPointerDown={(e) => {
             if (e.button !== 0 || loading) return;
             e.preventDefault();
             void runSearch();
           }}
-          onClick={(e) => {
-            if (e.detail === 0 && !loading) void runSearch();
+          onMouseDown={(e) => {
+            if (e.button !== 0 || loading) return;
+            e.preventDefault();
+            void runSearch();
           }}
-          className="w-full bg-leaf px-4 py-2.5 text-sm font-medium text-white transition hover:bg-leaf/90 disabled:opacity-60 sm:w-auto"
+          className="w-full cursor-pointer touch-manipulation bg-leaf px-4 py-2.5 text-sm font-medium text-white transition hover:bg-leaf/90 disabled:opacity-60 sm:w-auto"
         >
           {loading ? "검색 중…" : "검색"}
         </button>
@@ -462,6 +522,7 @@ export function SearchPage() {
             {error}
           </p>
         ) : null}
+        </form>
       </section>
 
       {result ? (
