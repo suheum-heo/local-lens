@@ -28,11 +28,16 @@ def _area() -> SearchArea:
     )
 
 
-def _kakao_page(docs: list[dict], *, is_end: bool) -> httpx.Response:
-    return httpx.Response(
-        200,
-        json={"documents": docs, "meta": {"is_end": is_end, "total_count": len(docs)}},
-    )
+def _kakao_page(
+    docs: list[dict],
+    *,
+    is_end: bool,
+    pageable_count: int | None = None,
+) -> httpx.Response:
+    meta: dict = {"is_end": is_end, "total_count": len(docs)}
+    if pageable_count is not None:
+        meta["pageable_count"] = pageable_count
+    return httpx.Response(200, json={"documents": docs, "meta": meta})
 
 
 SAMPLE_DOC = {
@@ -92,9 +97,9 @@ async def test_live_kakao_parses_and_paginates():
         page = int(request.url.params.get("page", "1"))
         if page == 1:
             docs = [{**SAMPLE_DOC, "id": "1"}, {**SAMPLE_DOC, "id": "2"}]
-            return _kakao_page(docs, is_end=False)
+            return _kakao_page(docs, is_end=False, pageable_count=17)
         docs = [{**SAMPLE_DOC, "id": "3"}]
-        return _kakao_page(docs, is_end=True)
+        return _kakao_page(docs, is_end=True, pageable_count=17)
 
     counter = ApiCallCounter()
     provider = LiveKakaoLocalProvider(

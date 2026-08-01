@@ -21,7 +21,8 @@ from app.scoring.engine import ScoringEngine, SimpleScoringEngine
 
 # Google Text Search is the other major latency driver; bound concurrency
 # to stay under typical rate limits while overlapping with Kakao enrichment.
-GOOGLE_MATCH_CONCURRENCY = 8
+# 14 finishes with Kakao enrich (~16) more evenly without changing match logic.
+GOOGLE_MATCH_CONCURRENCY = 14
 
 
 class SearchOrchestrator:

@@ -132,7 +132,15 @@ class LiveKakaoLocalProvider(KakaoLocalProvider):
         radius_m: int,
     ) -> list[KakaoPlaceData]:
         collected: dict[str, KakaoPlaceData] = {}
-        for page in range(1, self._max_pages + 1):
+
+        def _ingest(documents: list[Any]) -> None:
+            for doc in documents:
+                place = _normalize_document(doc)
+                if place is None:
+                    continue
+                collected.setdefault(place.kakao_place_id, place)
+
+        async def _fetch_page(page: int) -> dict[str, Any]:
             params = {
                 "query": query,
                 "x": str(longitude),
@@ -143,20 +151,40 @@ class LiveKakaoLocalProvider(KakaoLocalProvider):
                 "page": page,
                 "sort": "distance",
             }
-            data = await self._get_json(client, headers=headers, params=params)
-            documents = data.get("documents") or []
-            if not documents:
-                break
+            return await self._get_json(client, headers=headers, params=params)
 
-            for doc in documents:
-                place = _normalize_document(doc)
-                if place is None:
-                    continue
-                collected.setdefault(place.kakao_place_id, place)
+        # Page 1 first — if Kakao says is_end, skip the rest (same docs, less RTT).
+        first = await _fetch_page(1)
+        docs = first.get("documents") or []
+        if not docs:
+            return []
+        _ingest(docs)
+        meta = first.get("meta") or {}
+        if meta.get("is_end", True) or self._max_pages <= 1:
+            return list(collected.values())
 
-            meta = data.get("meta") or {}
-            if meta.get("is_end", True):
-                break
+        # Use pageable_count when present so we don't over-fetch empty pages.
+        pageable = meta.get("pageable_count")
+        if isinstance(pageable, int) and pageable > 0:
+            last_needed = min(
+                self._max_pages,
+                max(1, math.ceil(pageable / PAGE_SIZE)),
+            )
+        else:
+            last_needed = self._max_pages
+        if last_needed <= 1:
+            return list(collected.values())
+
+        # Remaining pages in parallel (same result set as serial fetch).
+        extra_pages = list(range(2, last_needed + 1))
+        extras = await asyncio.gather(
+            *[_fetch_page(page) for page in extra_pages],
+            return_exceptions=True,
+        )
+        for data in extras:
+            if isinstance(data, Exception):
+                raise data
+            _ingest(data.get("documents") or [])
 
         return list(collected.values())
 

@@ -25,8 +25,13 @@ from app.domain.models import GooglePlaceData
 from app.providers.base import GooglePlacesProvider
 from app.providers.errors import ApiCallCounter, ProviderAPIError, ProviderConfigError
 from app.providers.place_photos import extract_first_photo
+from app.providers.ttl_cache import TtlCache
 
 logger = logging.getLogger(__name__)
+
+# Cross-request reuse (process-local). Ratings/places drift slowly for MVP.
+_SEARCH_TTL = TtlCache[list[GooglePlaceData]](ttl_s=10 * 60, max_size=1024)
+_DETAILS_TTL = TtlCache[GooglePlaceData | None](ttl_s=30 * 60, max_size=2048)
 
 SEARCH_TEXT_URL = "https://places.googleapis.com/v1/places:searchText"
 PLACE_DETAILS_URL = "https://places.googleapis.com/v1/places/{place_id}"
@@ -101,6 +106,12 @@ class LiveGooglePlacesProvider(GooglePlacesProvider):
         )
         if cache_key in self._search_cache:
             return list(self._search_cache[cache_key])
+        hit, ttl_places = _SEARCH_TTL.get(cache_key)
+        if hit and ttl_places is not None:
+            self._search_cache[cache_key] = list(ttl_places)
+            for place in ttl_places:
+                self._details_cache.setdefault(place.google_place_id, place)
+            return list(ttl_places)
 
         text_query = f"{name} {address}".strip() if address else name.strip()
         body: dict[str, Any] = {
@@ -138,12 +149,20 @@ class LiveGooglePlacesProvider(GooglePlacesProvider):
                 self._details_cache.setdefault(place.google_place_id, place)
 
         self._search_cache[cache_key] = places
+        _SEARCH_TTL.set(cache_key, list(places))
         return list(places)
 
     async def get_place_details(self, google_place_id: str) -> GooglePlaceData | None:
         cached = self._details_cache.get(google_place_id)
         if cached is not None and _has_scoring_fields(cached):
             return cached
+        hit, ttl_place = _DETAILS_TTL.get(google_place_id)
+        if hit:
+            self._details_cache[google_place_id] = ttl_place
+            if ttl_place is not None and _has_scoring_fields(ttl_place):
+                return ttl_place
+            if ttl_place is None:
+                return None
 
         need_photos = cached is None or not cached.photo_name
         field_mask = (
@@ -166,6 +185,7 @@ class LiveGooglePlacesProvider(GooglePlacesProvider):
 
         if not data:
             self._details_cache[google_place_id] = None
+            _DETAILS_TTL.set(google_place_id, None)
             return None
 
         place = _normalize_place(data, fallback_name="")
@@ -179,8 +199,10 @@ class LiveGooglePlacesProvider(GooglePlacesProvider):
                     }
                 )
         self._details_cache[google_place_id] = place
+        _DETAILS_TTL.set(google_place_id, place)
         if place is not None and place.google_place_id != google_place_id:
             self._details_cache[place.google_place_id] = place
+            _DETAILS_TTL.set(place.google_place_id, place)
         return place
 
     def _get_client(self) -> httpx.AsyncClient:
@@ -189,8 +211,8 @@ class LiveGooglePlacesProvider(GooglePlacesProvider):
                 timeout=REQUEST_TIMEOUT_S,
                 transport=self._transport,
                 limits=httpx.Limits(
-                    max_connections=16,
-                    max_keepalive_connections=8,
+                    max_connections=28,
+                    max_keepalive_connections=14,
                 ),
             )
         return self._client

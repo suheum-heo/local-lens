@@ -19,6 +19,7 @@ import httpx
 
 from app.domain.models import KakaoPlaceData
 from app.providers.errors import ApiCallCounter
+from app.providers.ttl_cache import TtlCache
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,11 @@ APP_VERSION = "6.6.0"
 REQUEST_TIMEOUT_S = 4.0
 DEFAULT_CONCURRENCY = 16
 DEFAULT_MAX_PLACES = 80
+
+# Cross-request reuse of rating lookups (same soft-fail semantics).
+_RATING_TTL = TtlCache[tuple[float | None, int | None]](
+    ttl_s=30 * 60, max_size=4096
+)
 
 
 @dataclass(frozen=True)
@@ -134,6 +140,12 @@ class KakaoPlaceEnricher:
     ) -> tuple[float | None, int | None]:
         if place_id in self._cache:
             return self._cache[place_id]
+        hit, ttl_result = _RATING_TTL.get(place_id)
+        if hit:
+            # Cached tuples may be (None, None) after soft-fail — reuse as-is.
+            result = ttl_result if ttl_result is not None else (None, None)
+            self._cache[place_id] = result
+            return result
 
         if self._counter is not None:
             self._counter.kakao_place_detail += 1
@@ -145,6 +157,7 @@ class KakaoPlaceEnricher:
             logger.debug("Kakao place-detail timeout for %s", place_id)
             result: tuple[float | None, int | None] = (None, None)
             self._cache[place_id] = result
+            _RATING_TTL.set(place_id, result)
             return result
         except httpx.HTTPError as exc:
             logger.debug(
@@ -154,11 +167,13 @@ class KakaoPlaceEnricher:
             )
             result = (None, None)
             self._cache[place_id] = result
+            _RATING_TTL.set(place_id, result)
             return result
 
         if resp.status_code != 200:
             result = (None, None)
             self._cache[place_id] = result
+            _RATING_TTL.set(place_id, result)
             return result
 
         try:
@@ -166,10 +181,12 @@ class KakaoPlaceEnricher:
         except ValueError:
             result = (None, None)
             self._cache[place_id] = result
+            _RATING_TTL.set(place_id, result)
             return result
 
         parsed = parse_place_detail_scores(data)
         self._cache[place_id] = parsed
+        _RATING_TTL.set(place_id, parsed)
         return parsed
 
 
