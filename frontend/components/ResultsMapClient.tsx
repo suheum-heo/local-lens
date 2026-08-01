@@ -8,7 +8,7 @@ const ResultsMapInner = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full min-h-[16rem] w-full items-center justify-center rounded-card border border-ink/[0.06] bg-mist/50 text-sm text-ink/40">
+      <div className="flex h-full min-h-[16rem] w-full items-center justify-center rounded-card border border-line bg-mist/50 text-sm text-mute">
         지도 불러오는 중…
       </div>
     ),

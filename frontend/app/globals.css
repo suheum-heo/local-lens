@@ -10,9 +10,7 @@
 
 body {
   @apply bg-paper font-body text-ink antialiased;
-  background-image:
-    radial-gradient(ellipse 70% 45% at 15% -5%, rgba(47, 107, 79, 0.1), transparent 55%),
-    radial-gradient(ellipse 50% 35% at 95% 0%, rgba(20, 24, 22, 0.03), transparent 50%);
+  background-image: theme("backgroundImage.hero-glow");
   min-height: 100vh;
 }
 
@@ -25,20 +23,20 @@ body {
 /* Leaflet polish */
 .leaflet-container {
   font: inherit;
-  background: #eef1ef;
+  background: #f1f5f9;
 }
 
 .leaflet-popup-content-wrapper {
-  border-radius: 12px;
-  box-shadow: 0 8px 28px rgba(20, 24, 22, 0.12);
-  border: 1px solid rgba(20, 24, 22, 0.06);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.12);
+  border: 1px solid #e5e7eb;
   padding: 2px 4px;
 }
 
 .leaflet-popup-content {
-  margin: 10px 12px;
+  margin: 10px 14px;
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .leaflet-popup-tip {
@@ -47,11 +45,15 @@ body {
 
 .ll-map-shell .leaflet-control-zoom a {
   border: none !important;
-  color: #141816 !important;
+  color: #111827 !important;
   border-radius: 10px !important;
   width: 32px !important;
   height: 32px !important;
   line-height: 32px !important;
   margin-bottom: 4px;
-  box-shadow: 0 4px 14px rgba(20, 24, 22, 0.1);
+  box-shadow: 0 4px 14px rgba(17, 24, 39, 0.1);
+}
+
+.ll-map-legend {
+  pointer-events: none;
 }

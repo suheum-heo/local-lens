@@ -36,11 +36,13 @@ import { areasFromSelection } from "@/lib/mapAreas";
 
 const CHIP =
   "rounded-chip px-3.5 py-2 text-sm font-medium transition duration-200 ease-soft touch-manipulation";
-const CHIP_ON = "bg-leaf text-white shadow-soft";
+const CHIP_ON = "bg-brand text-white shadow-soft";
 const CHIP_OFF =
-  "bg-white text-ink/65 ring-1 ring-ink/[0.08] hover:bg-mist/80 hover:text-ink";
+  "bg-white text-ink/65 ring-1 ring-line hover:bg-mist hover:text-ink";
 const FIELD =
-  "w-full rounded-2xl border-0 bg-mist/60 px-4 py-3 text-ink outline-none ring-1 ring-ink/[0.06] transition placeholder:text-ink/35 focus:bg-white focus:ring-2 focus:ring-leaf/25";
+  "w-full rounded-2xl border-0 bg-mist/80 px-4 py-3 text-ink outline-none ring-1 ring-line transition placeholder:text-mute/70 focus:bg-white focus:ring-2 focus:ring-brand/25";
+const LABEL =
+  "text-xs font-semibold uppercase tracking-wide text-mute";
 
 const CITY_LABEL: Record<string, string> = Object.fromEntries(
   CITIES.map((c) => [c.value, c.label]),
@@ -436,495 +438,558 @@ export function SearchPage() {
   }
 
   const summaryCards = [
-    { id: "all" as const, label: "전체", value: coverageCounts.all },
-    { id: "both" as const, label: "양쪽 검증", value: coverageCounts.both },
+    {
+      id: "both" as const,
+      label: "양쪽 검증",
+      hint: "Consensus Pick",
+      value: coverageCounts.both,
+      accent: "text-brand-dark",
+      iconBg: "bg-brand/15 text-brand-dark",
+      activeClass: "ring-brand/40 bg-brand/5",
+      dot: "bg-brand",
+    },
     {
       id: "google_only" as const,
       label: "Google 리뷰",
+      hint: "Global Favorite",
       value: coverageCounts.google_only,
+      accent: "text-global",
+      iconBg: "bg-global/15 text-global",
+      activeClass: "ring-global/40 bg-global/5",
+      dot: "bg-global",
     },
     {
       id: "kakao_only" as const,
       label: "Kakao만",
+      hint: "Local Favorite",
       value: coverageCounts.kakao_only,
+      accent: "text-local",
+      iconBg: "bg-local/15 text-local",
+      activeClass: "ring-local/40 bg-local/5",
+      dot: "bg-local",
     },
-    { id: "none" as const, label: "데이터 없음", value: coverageCounts.none },
+    {
+      id: "none" as const,
+      label: "데이터 부족",
+      hint: "Limited Data",
+      value: coverageCounts.none,
+      accent: "text-violet",
+      iconBg: "bg-violet/15 text-violet",
+      activeClass: "ring-violet/40 bg-violet/5",
+      dot: "bg-violet",
+    },
   ];
 
-  return (
-    <div className="mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6 sm:pt-14 lg:px-8">
-      <header className="mb-10 max-w-2xl sm:mb-14">
-        <p className="font-display text-sm font-semibold tracking-[0.18em] text-leaf">
-          LOCALLENS
-        </p>
-        <h1 className="mt-4 font-display text-[2.5rem] font-semibold leading-[1.15] tracking-tight text-ink text-balance sm:text-5xl sm:leading-[1.12]">
-          한국인도,
-          <br />
-          외국인도
-          <br />
-          좋아하는 맛집.
-        </h1>
-        <p className="mt-4 max-w-lg text-base leading-relaxed text-ink/50 sm:text-lg">
-          Kakao와 Google 데이터를 함께 비교해 더 신뢰할 수 있는 맛집을 찾습니다.
-        </p>
-      </header>
+  const selectedSummary =
+    selected.length === 0
+      ? null
+      : selected.length === 1
+        ? selected[0].name
+        : `${selected[0].name} 외 ${selected.length - 1}곳`;
 
-      <section className="rounded-card bg-card p-5 shadow-soft ring-1 ring-ink/[0.04] sm:p-7">
-        <form
-          className="space-y-7"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void runSearch();
-          }}
+  const searchForm = (
+    <form
+      className="space-y-5"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void runSearch();
+      }}
+    >
+      <div>
+        <label className={LABEL} htmlFor="ll-city">
+          지역
+        </label>
+        <select
+          id="ll-city"
+          className={`mt-2 ${FIELD} appearance-none`}
+          value={city}
+          onChange={(e) => setCity(e.target.value as City)}
         >
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wide text-ink/35">
-              City
-            </div>
-            <div
-              className="mt-2.5 flex flex-wrap gap-2"
-              role="radiogroup"
-              aria-label="지역"
-            >
-              {CITIES.map((c) => {
-                const active = city === c.value;
-                return (
-                  <button
-                    key={c.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    {...pressProps(() => setCity(c.value))}
-                    className={`${CHIP} ${active ? CHIP_ON : CHIP_OFF}`}
-                  >
-                    {c.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          {CITIES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
-          <div>
-            <label className="text-xs font-medium uppercase tracking-wide text-ink/35">
-              Food / Keyword
-            </label>
-            <input
-              ref={queryInputRef}
-              className={`mt-2.5 ${FIELD}`}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={`비우면 모든 음식 · 예: 삼겹살, 카페, 국밥`}
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck={false}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  void runSearch();
+      <div>
+        <div className={LABEL}>위치 유형</div>
+        <div
+          className="mt-2 flex flex-wrap gap-2"
+          role="radiogroup"
+          aria-label="위치 유형"
+        >
+          {LOCATION_MODES.map((m) => {
+            const active = mode === m.value;
+            return (
+              <button
+                key={m.value}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                {...pressProps(() => setMode(m.value))}
+                className={`${CHIP} ${active ? CHIP_ON : CHIP_OFF}`}
+              >
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-baseline justify-between gap-2">
+          <label className={LABEL} htmlFor="ll-location">
+            {modeLabel}
+          </label>
+          {catalogLoading ? (
+            <span className="text-xs text-mute">불러오는 중…</span>
+          ) : null}
+        </div>
+
+        {selected.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-2" aria-label="선택된 위치">
+            {selected.map((item) => (
+              <span
+                key={item.id}
+                className="inline-flex items-center gap-1 rounded-chip bg-brand/10 py-1 pl-3 text-sm font-medium text-brand-dark"
+              >
+                {item.name}
+                <button
+                  type="button"
+                  {...pressProps(() => removeLocation(item.id))}
+                  className="rounded-full px-2 py-0.5 text-brand-dark/70 transition hover:bg-brand/10"
+                  aria-label={`${item.name} 제거`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        <input
+          id="ll-location"
+          ref={filterInputRef}
+          className={`mt-2 ${FIELD}`}
+          placeholder={locationSearchPlaceholder(city, mode)}
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          onCompositionStart={() => {
+            composingRef.current = true;
+            imePointerDownRef.current = false;
+          }}
+          onCompositionEnd={() => {
+            composingRef.current = false;
+            const hadPointer = imePointerDownRef.current;
+            imePointerDownRef.current = false;
+            requestAnimationFrame(() => {
+              if (hadPointer) {
+                recoverImeSuggestionPick();
+                return;
+              }
+              const { x, y } = lastPointerRef.current;
+              const under = locationAtClientPoint(x, y);
+              if (under) {
+                const unique = resolveBlurSelection();
+                if (
+                  unique?.id === under.id ||
+                  filteredRef.current.length === 1
+                ) {
+                  addLocationRef.current(under);
+                  return;
                 }
-              }}
-            />
+              }
+              if (
+                filteredRef.current.length === 1 &&
+                filterValueRef.current.trim().length >= 2
+              ) {
+                addLocationRef.current(filteredRef.current[0]);
+              }
+            });
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+            e.preventDefault();
+            const first = filtered[0];
+            if (first) addLocation(first);
+          }}
+          onBlur={(e) => {
+            if (Date.now() < ignoreBlurPickUntilRef.current) return;
+            const related = e.relatedTarget as HTMLElement | null;
+            const viaOption = related?.closest?.(
+              "[data-location-id]",
+            ) as HTMLElement | null;
+            if (viaOption) {
+              const id = viaOption.getAttribute("data-location-id");
+              const item = filteredRef.current.find((x) => x.id === id);
+              if (item) addLocation(item);
+              return;
+            }
+            window.setTimeout(() => {
+              if (Date.now() < ignoreBlurPickUntilRef.current) return;
+              if (document.activeElement === filterInputRef.current) return;
+              const { x, y } = lastPointerRef.current;
+              const under = locationAtClientPoint(x, y);
+              if (under) {
+                addLocationRef.current(under);
+                return;
+              }
+              const choice = resolveBlurSelection();
+              if (choice) addLocationRef.current(choice);
+            }, 0);
+          }}
+        />
+        <ul
+          ref={suggestionListRef}
+          className="mt-2 max-h-40 overflow-auto rounded-2xl bg-white ring-1 ring-line"
+          role="listbox"
+          aria-label={`${modeLabel} 검색 결과`}
+        >
+          {filtered.length === 0 ? (
+            <li className="px-4 py-3 text-sm text-mute">
+              {catalogLoading
+                ? "위치를 불러오는 중이에요…"
+                : mode === "bus_stop" && filter.trim().length < 2
+                  ? "정류장 이름을 두 글자 이상 입력해 주세요."
+                  : "검색된 위치가 없어요. 다른 이름을 입력해 보세요."}
+            </li>
+          ) : (
+            filtered.map((item) => {
+              const active = selected.some((s) => s.id === item.id);
+              return (
+                <li
+                  key={item.id}
+                  role="option"
+                  aria-selected={active}
+                  data-location-id={item.id}
+                  className={`flex w-full cursor-pointer touch-manipulation items-center justify-between px-4 py-2.5 text-left text-sm transition ${
+                    active
+                      ? "bg-brand/10 font-medium text-brand-dark"
+                      : "text-ink hover:bg-mist/80"
+                  }`}
+                >
+                  <span>{item.name}</span>
+                  <span className="text-xs text-mute">
+                    {active
+                      ? "선택됨"
+                      : CITY_LABEL[item.city] || item.name_en || item.city}
+                  </span>
+                </li>
+              );
+            })
+          )}
+        </ul>
+      </div>
+
+      <div>
+        <div className={LABEL}>반경</div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {SEARCH_RADIUS_OPTIONS_M.map((r) => {
+            const active = radiusM === r;
+            return (
+              <button
+                key={r}
+                type="button"
+                {...pressProps(() => setRadiusM(r))}
+                className={`${CHIP} ${active ? CHIP_ON : CHIP_OFF}`}
+              >
+                {formatRadiusLabel(r)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <label className={LABEL} htmlFor="ll-query">
+          음식 / 키워드
+        </label>
+        <input
+          id="ll-query"
+          ref={queryInputRef}
+          className={`mt-2 ${FIELD}`}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="비우면 모든 음식 · 예: 삼겹살, 카페, 국밥"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              void runSearch();
+            }
+          }}
+        />
+      </div>
+
+      <div className="space-y-2 pt-1">
+        <button
+          type="submit"
+          disabled={loading}
+          {...pressProps(() => {
+            if (!loading) void runSearch();
+          })}
+          className="inline-flex w-full items-center justify-center rounded-chip bg-brand-gradient px-6 py-3.5 text-sm font-semibold text-white shadow-glow transition duration-200 ease-soft hover:brightness-105 disabled:opacity-55"
+        >
+          {loading ? "검색 중…" : "맛집 찾기"}
+        </button>
+        {error ? (
+          <p className="text-sm text-clay" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </form>
+  );
+
+  return (
+    <div className="min-h-screen lg:flex">
+      <aside className="border-b border-line/80 bg-card/80 backdrop-blur-sm lg:sticky lg:top-0 lg:h-screen lg:w-[22rem] lg:shrink-0 lg:overflow-y-auto lg:border-b-0 lg:border-r xl:w-[24rem]">
+        <div className="px-5 py-7 sm:px-6 sm:py-8">
+          <div className="flex items-center gap-2.5">
+            <span
+              className="flex h-9 w-9 items-center justify-center rounded-2xl bg-brand-gradient text-sm font-bold text-white shadow-glow"
+              aria-hidden
+            >
+              L
+            </span>
+            <div>
+              <p className="font-display text-base font-bold tracking-tight text-ink">
+                LocalLens
+              </p>
+              <p className="text-[11px] font-medium text-mute">
+                Local × Global
+              </p>
+            </div>
           </div>
 
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wide text-ink/35">
-              Location type
+          <header className="mt-7">
+            <h1 className="font-display text-[1.75rem] font-semibold leading-snug tracking-tight text-ink text-balance sm:text-[2rem]">
+              두 시선이 만나는
+              <br />
+              진짜 맛집을 찾다.
+            </h1>
+            <p className="mt-3 text-sm leading-relaxed text-mute">
+              Kakao와 Google 데이터를 함께 비교해 더 신뢰할 수 있는 맛집을
+              찾습니다.
+            </p>
+          </header>
+
+          <div className="mt-7">{searchForm}</div>
+        </div>
+      </aside>
+
+      <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-8">
+        {!result ? (
+          <section className="mx-auto flex max-w-3xl flex-col items-center justify-center px-4 py-16 text-center sm:py-24">
+            <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-brand/10 text-2xl font-bold text-brand-dark">
+              ◌
             </div>
-            <div
-              className="mt-2.5 grid grid-cols-3 gap-1 rounded-2xl bg-mist/70 p-1"
-              role="radiogroup"
-              aria-label="위치 유형"
-            >
-              {LOCATION_MODES.map((m) => {
-                const active = mode === m.value;
+            <h2 className="mt-5 text-xl font-semibold tracking-tight text-ink">
+              {selected.length > 0
+                ? "검색 영역을 확인했어요"
+                : "위치를 고르고 맛집을 찾아보세요"}
+            </h2>
+            <p className="mt-2 max-w-md text-sm leading-relaxed text-mute">
+              {selected.length > 0
+                ? "왼쪽에서 키워드와 반경을 확인한 뒤 「맛집 찾기」를 눌러 주세요."
+                : "지하철역·버스정류장·동을 선택한 뒤 Kakao와 Google 시선으로 비교합니다."}
+            </p>
+            {selected.length > 0 && mapAreas.length > 0 ? (
+              <div className="mt-8 h-56 w-full max-w-xl sm:h-72">
+                <ResultsMapClient
+                  areas={mapAreas}
+                  restaurants={[]}
+                  selectedRestaurantId={null}
+                  onSelectRestaurant={() => undefined}
+                />
+              </div>
+            ) : null}
+          </section>
+        ) : (
+          <section>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="font-display text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+                  {coverageCounts.all.toLocaleString()}곳
+                </h2>
+                <p className="mt-1 text-sm text-mute">
+                  {[selectedSummary, formatRadiusLabel(radiusM), result.meta.query]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              </div>
+              <div
+                className="flex rounded-2xl bg-mist p-1"
+                role="tablist"
+                aria-label="결과 보기"
+              >
+                {(
+                  [
+                    { id: "list" as const, label: "리스트" },
+                    { id: "map" as const, label: "지도" },
+                  ] as const
+                ).map((tab) => {
+                  const active = mobilePane === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setMobilePane(tab.id)}
+                      className={`rounded-xl px-3.5 py-2 text-sm font-semibold transition lg:hidden ${
+                        active
+                          ? "bg-white text-ink shadow-soft"
+                          : "text-mute"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+                <span className="hidden px-3 py-2 text-sm font-medium text-mute lg:inline">
+                  리스트 + 지도
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+              {summaryCards.map((card) => {
+                const active = coverageFilter === card.id;
                 return (
                   <button
-                    key={m.value}
+                    key={card.id}
                     type="button"
-                    role="radio"
-                    aria-checked={active}
-                    {...pressProps(() => setMode(m.value))}
-                    className={`rounded-xl px-2 py-2.5 text-sm font-semibold transition duration-200 ease-soft sm:px-3 ${
+                    onClick={() =>
+                      setCoverageFilter(active ? "all" : card.id)
+                    }
+                    className={`rounded-card bg-card px-3.5 py-3.5 text-left shadow-soft ring-1 transition duration-200 ease-soft hover:shadow-lift ${
                       active
-                        ? "bg-white text-ink shadow-soft"
-                        : "text-ink/50 hover:text-ink"
+                        ? `${card.activeClass} ring-2`
+                        : "ring-line hover:ring-brand/20"
                     }`}
                   >
-                    {m.label}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${card.iconBg}`}
+                      >
+                        <span
+                          className={`h-2 w-2 rounded-full ${card.dot}`}
+                        />
+                      </span>
+                      <span className="text-xs font-medium text-mute">
+                        {card.label}
+                      </span>
+                    </div>
+                    <div
+                      className={`mt-2 text-2xl font-bold tabular-nums tracking-tight ${card.accent}`}
+                    >
+                      {card.value}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-mute">
+                      {card.hint}
+                    </div>
                   </button>
                 );
               })}
             </div>
-          </div>
 
-          <div>
-            <div className="flex items-baseline justify-between gap-2">
-              <label className="text-xs font-medium uppercase tracking-wide text-ink/35">
-                {modeLabel}
-              </label>
-              {catalogLoading ? (
-                <span className="text-xs text-ink/35">불러오는 중…</span>
-              ) : null}
-            </div>
-
-            {selected.length > 0 ? (
-              <div className="mt-2.5 flex flex-wrap gap-2" aria-label="선택된 위치">
-                {selected.map((item) => (
-                  <span
-                    key={item.id}
-                    className="inline-flex items-center gap-1 rounded-chip bg-leaf/10 py-1 pl-3 text-sm font-medium text-leaf"
-                  >
-                    {item.name}
-                    <button
-                      type="button"
-                      {...pressProps(() => removeLocation(item.id))}
-                      className="rounded-full px-2 py-0.5 text-leaf/70 transition hover:bg-leaf/10 hover:text-leaf"
-                      aria-label={`${item.name} 제거`}
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
+            {result.notices.length > 0 ? (
+              <div className="mt-4 rounded-2xl bg-mist/80 px-4 py-3 text-sm text-mute">
+                {result.notices[0]}
               </div>
             ) : null}
 
-            <input
-              ref={filterInputRef}
-              className={`mt-2.5 ${FIELD}`}
-              placeholder={locationSearchPlaceholder(city, mode)}
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck={false}
-              onCompositionStart={() => {
-                composingRef.current = true;
-                imePointerDownRef.current = false;
-              }}
-              onCompositionEnd={() => {
-                composingRef.current = false;
-                const hadPointer = imePointerDownRef.current;
-                imePointerDownRef.current = false;
-                requestAnimationFrame(() => {
-                  if (hadPointer) {
-                    recoverImeSuggestionPick();
-                    return;
-                  }
-                  const { x, y } = lastPointerRef.current;
-                  const under = locationAtClientPoint(x, y);
-                  if (under) {
-                    const unique = resolveBlurSelection();
-                    if (
-                      unique?.id === under.id ||
-                      filteredRef.current.length === 1
-                    ) {
-                      addLocationRef.current(under);
-                      return;
-                    }
-                  }
-                  if (
-                    filteredRef.current.length === 1 &&
-                    filterValueRef.current.trim().length >= 2
-                  ) {
-                    addLocationRef.current(filteredRef.current[0]);
-                  }
-                });
-              }}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
-                e.preventDefault();
-                const first = filtered[0];
-                if (first) addLocation(first);
-              }}
-              onBlur={(e) => {
-                if (Date.now() < ignoreBlurPickUntilRef.current) return;
-                const related = e.relatedTarget as HTMLElement | null;
-                const viaOption = related?.closest?.(
-                  "[data-location-id]",
-                ) as HTMLElement | null;
-                if (viaOption) {
-                  const id = viaOption.getAttribute("data-location-id");
-                  const item = filteredRef.current.find((x) => x.id === id);
-                  if (item) addLocation(item);
-                  return;
-                }
-                window.setTimeout(() => {
-                  if (Date.now() < ignoreBlurPickUntilRef.current) return;
-                  if (document.activeElement === filterInputRef.current) return;
-                  const { x, y } = lastPointerRef.current;
-                  const under = locationAtClientPoint(x, y);
-                  if (under) {
-                    addLocationRef.current(under);
-                    return;
-                  }
-                  const choice = resolveBlurSelection();
-                  if (choice) addLocationRef.current(choice);
-                }, 0);
-              }}
-            />
-            <ul
-              ref={suggestionListRef}
-              className="mt-2 max-h-44 overflow-auto rounded-2xl bg-mist/40 ring-1 ring-ink/[0.05]"
-              role="listbox"
-              aria-label={`${modeLabel} 검색 결과`}
-            >
-              {filtered.length === 0 ? (
-                <li className="px-4 py-3 text-sm text-ink/40">
-                  {catalogLoading
-                    ? "위치를 불러오는 중이에요…"
-                    : mode === "bus_stop" && filter.trim().length < 2
-                      ? "정류장 이름을 두 글자 이상 입력해 주세요."
-                      : "검색된 위치가 없어요. 다른 이름을 입력해 보세요."}
-                </li>
-              ) : (
-                filtered.map((item) => {
-                  const active = selected.some((s) => s.id === item.id);
-                  return (
-                    <li
-                      key={item.id}
-                      role="option"
-                      aria-selected={active}
-                      data-location-id={item.id}
-                      className={`flex w-full cursor-pointer touch-manipulation items-center justify-between px-4 py-2.5 text-left text-sm transition ${
-                        active
-                          ? "bg-leaf/10 font-medium text-leaf"
-                          : "text-ink hover:bg-white/80"
-                      }`}
-                    >
-                      <span>{item.name}</span>
-                      <span className="text-xs text-ink/35">
-                        {active
-                          ? "선택됨"
-                          : CITY_LABEL[item.city] || item.name_en || item.city}
-                      </span>
-                    </li>
-                  );
-                })
-              )}
-            </ul>
-          </div>
-
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wide text-ink/35">
-              Radius
-            </div>
-            <div className="mt-2.5 flex flex-wrap gap-2">
-              {SEARCH_RADIUS_OPTIONS_M.map((r) => {
-                const active = radiusM === r;
-                return (
-                  <button
-                    key={r}
-                    type="button"
-                    {...pressProps(() => setRadiusM(r))}
-                    className={`${CHIP} ${active ? CHIP_ON : CHIP_OFF}`}
-                  >
-                    {formatRadiusLabel(r)}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center">
-            <button
-              type="submit"
-              disabled={loading}
-              {...pressProps(() => {
-                if (!loading) void runSearch();
-              })}
-              className="inline-flex w-full items-center justify-center rounded-chip bg-leaf px-6 py-3 text-sm font-semibold text-white shadow-soft transition duration-200 ease-soft hover:bg-leaf/90 hover:shadow-lift disabled:opacity-55 sm:w-auto"
-            >
-              {loading ? "검색 중…" : "맛집 찾기"}
-            </button>
-            {error ? (
-              <p className="text-sm text-clay" role="alert">
-                {error}
-              </p>
-            ) : null}
-          </div>
-        </form>
-      </section>
-
-      {!result && selected.length > 0 ? (
-        <section className="mt-8">
-          <div className="mb-3 text-xs font-medium uppercase tracking-wide text-ink/35">
-            Area preview
-          </div>
-          <div className="h-56 sm:h-72">
-            <ResultsMapClient
-              areas={mapAreas}
-              restaurants={[]}
-              selectedRestaurantId={null}
-              onSelectRestaurant={() => undefined}
-            />
-          </div>
-        </section>
-      ) : null}
-
-      {result ? (
-        <section className="mt-12 sm:mt-16">
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 className="font-display text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-                Results
-              </h2>
-              <p className="mt-1 text-sm text-ink/40">
-                {result.meta.query} · {formatRadiusLabel(radiusM)} ·{" "}
-                {result.meta.area_count}곳 기준
-              </p>
-            </div>
-          </div>
-
-          <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {summaryCards.map((card) => {
-              const active = coverageFilter === card.id;
-              return (
-                <button
-                  key={card.id}
-                  type="button"
-                  onClick={() =>
-                    setCoverageFilter(card.id === "all" ? "all" : card.id)
-                  }
-                  className={`rounded-card px-3 py-3 text-left transition duration-200 ease-soft sm:px-4 sm:py-4 ${
-                    active
-                      ? "bg-leaf text-white shadow-soft"
-                      : "bg-card text-ink shadow-soft ring-1 ring-ink/[0.04] hover:shadow-lift"
-                  }`}
-                >
-                  <div
-                    className={`text-[11px] font-medium tracking-wide ${
-                      active ? "text-white/70" : "text-ink/40"
-                    }`}
-                  >
-                    {card.label}
+            <div className="mt-6 grid gap-5 lg:grid-cols-2 lg:items-start">
+              <div
+                ref={listRef}
+                className={mobilePane === "list" ? "block" : "hidden lg:block"}
+              >
+                {filteredResults.length === 0 ? (
+                  <div className="rounded-card bg-card px-6 py-16 text-center shadow-soft ring-1 ring-line">
+                    <p className="text-lg font-semibold text-ink">
+                      조건에 맞는 식당이 없어요
+                    </p>
+                    <p className="mt-2 text-sm text-mute">
+                      다른 분류를 고르거나 반경·키워드를 바꿔 보세요.
+                    </p>
                   </div>
-                  <div className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
-                    {card.value}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {result.notices.length > 0 ? (
-            <div className="mb-6 rounded-2xl bg-mist/60 px-4 py-3 text-sm text-ink/50">
-              {result.notices[0]}
-            </div>
-          ) : null}
-
-          <div
-            className="mb-4 flex rounded-2xl bg-mist/70 p-1 lg:hidden"
-            role="tablist"
-            aria-label="결과 보기"
-          >
-            {(
-              [
-                { id: "list" as const, label: "List" },
-                { id: "map" as const, label: "Map" },
-              ] as const
-            ).map((tab) => {
-              const active = mobilePane === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => setMobilePane(tab.id)}
-                  className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition ${
-                    active
-                      ? "bg-white text-ink shadow-soft"
-                      : "text-ink/45"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-            <div
-              ref={listRef}
-              className={mobilePane === "list" ? "block" : "hidden lg:block"}
-            >
-              {filteredResults.length === 0 ? (
-                <div className="rounded-card bg-card px-6 py-16 text-center shadow-soft ring-1 ring-ink/[0.04]">
-                  <p className="text-lg font-semibold text-ink">
-                    조건에 맞는 식당이 없어요
-                  </p>
-                  <p className="mt-2 text-sm text-ink/45">
-                    다른 분류를 고르거나 반경·키워드를 바꿔 보세요.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {pageResults.map((r) => (
-                    <RestaurantCard
-                      key={r.restaurant_id}
-                      restaurant={r}
-                      selected={r.restaurant_id === selectedRestaurantId}
-                      onSelect={selectRestaurant}
-                      distanceM={nearestDistanceMeters(
-                        r.latitude,
-                        r.longitude,
-                        mapAreas,
-                      )}
-                    />
-                  ))}
-                  {totalPages > 1 ? (
-                    <div className="flex flex-wrap items-center justify-center gap-2 pt-4">
-                      <button
-                        type="button"
-                        disabled={currentPage <= 1}
-                        onClick={() => goToPage(currentPage - 1)}
-                        className={`${CHIP} ${CHIP_OFF} disabled:opacity-40`}
-                      >
-                        이전
-                      </button>
-                      <span className="px-2 text-sm tabular-nums text-ink/40">
-                        {currentPage} / {totalPages}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={currentPage >= totalPages}
-                        onClick={() => goToPage(currentPage + 1)}
-                        className={`${CHIP} ${CHIP_OFF} disabled:opacity-40`}
-                      >
-                        다음
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              )}
-            </div>
-
-            <div
-              className={`lg:sticky lg:top-6 ${
-                mobilePane === "map" ? "block" : "hidden lg:block"
-              }`}
-            >
-              <div className="h-[22rem] sm:h-[28rem] lg:h-[min(70vh,40rem)]">
-                {mapAreas.length > 0 ? (
-                  <ResultsMapClient
-                    areas={mapAreas}
-                    restaurants={filteredResults}
-                    selectedRestaurantId={selectedRestaurantId}
-                    onSelectRestaurant={(id) => {
-                      setMobilePane("list");
-                      selectRestaurant(id);
-                    }}
-                  />
                 ) : (
-                  <div className="flex h-full items-center justify-center rounded-card bg-card text-sm text-ink/40 shadow-soft">
-                    위치를 선택하면 지도가 표시됩니다
+                  <div className="space-y-3">
+                    {pageResults.map((r) => (
+                      <RestaurantCard
+                        key={r.restaurant_id}
+                        restaurant={r}
+                        selected={r.restaurant_id === selectedRestaurantId}
+                        onSelect={selectRestaurant}
+                        distanceM={nearestDistanceMeters(
+                          r.latitude,
+                          r.longitude,
+                          mapAreas,
+                        )}
+                      />
+                    ))}
+                    {totalPages > 1 ? (
+                      <div className="flex flex-wrap items-center justify-center gap-2 pt-4">
+                        <button
+                          type="button"
+                          disabled={currentPage <= 1}
+                          onClick={() => goToPage(currentPage - 1)}
+                          className={`${CHIP} ${CHIP_OFF} disabled:opacity-40`}
+                        >
+                          이전
+                        </button>
+                        <span className="px-2 text-sm tabular-nums text-mute">
+                          {currentPage} / {totalPages}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={currentPage >= totalPages}
+                          onClick={() => goToPage(currentPage + 1)}
+                          className={`${CHIP} ${CHIP_OFF} disabled:opacity-40`}
+                        >
+                          다음
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 )}
               </div>
+
+              <div
+                className={`lg:sticky lg:top-6 ${
+                  mobilePane === "map" ? "block" : "hidden lg:block"
+                }`}
+              >
+                <div className="h-[22rem] sm:h-[28rem] lg:h-[min(72vh,42rem)]">
+                  {mapAreas.length > 0 ? (
+                    <ResultsMapClient
+                      areas={mapAreas}
+                      restaurants={filteredResults}
+                      selectedRestaurantId={selectedRestaurantId}
+                      onSelectRestaurant={(id) => {
+                        setMobilePane("list");
+                        selectRestaurant(id);
+                      }}
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center rounded-card bg-card text-sm text-mute shadow-soft ring-1 ring-line">
+                      위치를 선택하면 지도가 표시됩니다
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        </section>
-      ) : null}
+          </section>
+        )}
+      </main>
     </div>
   );
 }

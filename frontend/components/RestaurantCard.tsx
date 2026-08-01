@@ -1,57 +1,41 @@
 import { googleMapUrl, kakaoMapUrl } from "@/lib/mapLinks";
 import { formatDistanceMeters } from "@/lib/geo";
-import type { Restaurant, RestaurantLabel } from "@/lib/types";
+import {
+  LABEL_BADGE_CLASS,
+  LABEL_TEXT,
+  STATUS,
+  statusFromLabel,
+} from "@/lib/statusStyles";
+import type { Restaurant } from "@/lib/types";
 
-const LABEL_KO: Record<RestaurantLabel, string> = {
-  consensus_pick: "Consensus Pick",
-  local_favorite: "Local Favorite",
-  global_favorite: "Global Favorite",
-  limited_data: "Limited Data",
-};
-
-const LABEL_STYLE: Record<RestaurantLabel, string> = {
-  consensus_pick: "bg-leaf text-white",
-  local_favorite: "bg-leaf/10 text-leaf",
-  global_favorite: "bg-ink/90 text-white",
-  limited_data: "bg-mist text-ink/60",
-};
-
-function RatingPill({
-  label,
-  rating,
-  count,
-  empty,
+function ScoreRing({
+  score,
+  tone,
 }: {
-  label: string;
-  rating: number | null;
-  count: number | null;
-  empty: string;
+  score: number | null;
+  tone: keyof typeof STATUS;
 }) {
-  if (rating == null) {
-    return (
-      <div className="min-w-0 rounded-xl bg-mist/70 px-3 py-2.5">
-        <div className="text-[11px] font-medium uppercase tracking-wide text-ink/40">
-          {label}
-        </div>
-        <div className="mt-0.5 text-sm text-ink/45">{empty}</div>
-      </div>
-    );
-  }
+  const color = STATUS[tone].hex;
+  const display = score != null ? Math.round(score) : "—";
   return (
-    <div className="min-w-0 rounded-xl bg-mist/70 px-3 py-2.5">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-ink/40">
-        {label}
-      </div>
-      <div className="mt-0.5 flex items-baseline gap-1.5">
-        <span className="text-lg font-semibold tabular-nums tracking-tight text-ink">
-          {rating.toFixed(1)}
+    <div
+      className="relative flex h-[4.25rem] w-[4.25rem] shrink-0 items-center justify-center rounded-full bg-white shadow-soft"
+      style={{
+        background: `conic-gradient(${color} ${
+          score != null ? Math.min(100, Math.max(0, score)) : 0
+        }%, #E5E7EB 0)`,
+      }}
+      aria-label={
+        score != null ? `추천 점수 ${score.toFixed(1)}` : "추천 점수 없음"
+      }
+    >
+      <div className="flex h-[3.35rem] w-[3.35rem] flex-col items-center justify-center rounded-full bg-white">
+        <span className="text-lg font-bold tabular-nums leading-none text-ink">
+          {display}
         </span>
-        <span className="text-xs text-ink/40">★</span>
-        {count != null ? (
-          <span className="text-xs tabular-nums text-ink/40">
-            {count.toLocaleString()}
-          </span>
-        ) : null}
+        <span className="mt-0.5 text-[9px] font-medium uppercase tracking-wide text-mute">
+          Score
+        </span>
       </div>
     </div>
   );
@@ -74,16 +58,22 @@ export function RestaurantCard({
     scores.global.review_count ?? google?.user_rating_count ?? null;
   const kakaoRating = scores.local.rating ?? kakao.rating;
   const kakaoCount = scores.local.review_count ?? kakao.review_count;
-  const recommendation = scores.consensus.score ?? scores.local.score ?? scores.global.score;
+  const recommendation =
+    scores.consensus.score ?? scores.local.score ?? scores.global.score;
 
   const unmatched = !match.matched;
+  const tone = unmatched && !label ? "unmatched" : statusFromLabel(label);
   const statusBadge = label
-    ? { text: LABEL_KO[label], className: LABEL_STYLE[label] }
+    ? { text: LABEL_TEXT[label], className: LABEL_BADGE_CLASS[label] }
     : unmatched
-      ? { text: "Google Unmatched", className: "bg-mist text-ink/55" }
+      ? {
+          text: "Google Unmatched",
+          className: "bg-slate-400 text-white",
+        }
       : null;
 
   const categoryShort = restaurant.category?.split(">").pop()?.trim() ?? null;
+  const initial = restaurant.name.trim().charAt(0) || "?";
 
   return (
     <article
@@ -98,99 +88,131 @@ export function RestaurantCard({
           onSelect(restaurant.restaurant_id);
         }
       }}
-      className={`group rounded-card border bg-card p-4 shadow-soft outline-none transition duration-200 ease-soft sm:p-5 ${
+      className={`group rounded-card border bg-card p-3.5 shadow-soft outline-none transition duration-200 ease-soft sm:p-4 ${
         selected
-          ? "border-leaf/30 ring-2 ring-leaf/20 shadow-lift"
-          : "border-ink/[0.06] hover:-translate-y-0.5 hover:border-ink/10 hover:shadow-lift"
+          ? "border-brand/40 ring-2 ring-brand/20 shadow-lift"
+          : "border-line hover:-translate-y-0.5 hover:border-brand/20 hover:shadow-lift"
       } ${onSelect ? "cursor-pointer" : ""}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="truncate text-lg font-semibold tracking-tight text-ink sm:text-xl">
-            {restaurant.name}
-          </h3>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink/45">
-            {distanceM != null ? (
-              <span className="font-medium tabular-nums text-ink/55">
-                {formatDistanceMeters(distanceM)}
+      <div className="flex gap-3 sm:gap-4">
+        <div
+          className="flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-2xl text-xl font-bold text-white shadow-soft sm:h-[5.25rem] sm:w-[5.25rem] sm:text-2xl"
+          style={{
+            background:
+              "linear-gradient(145deg, rgba(34,197,94,0.95), rgba(99,102,241,0.85))",
+          }}
+          aria-hidden
+        >
+          {initial}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              {statusBadge ? (
+                <span
+                  className={`inline-flex rounded-chip px-2 py-0.5 text-[10px] font-semibold tracking-wide ${statusBadge.className}`}
+                >
+                  {statusBadge.text}
+                </span>
+              ) : null}
+              <h3 className="mt-1 truncate text-base font-semibold tracking-tight text-ink sm:text-lg">
+                {restaurant.name}
+              </h3>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-mute sm:text-sm">
+                {categoryShort ? <span>{categoryShort}</span> : null}
+                {categoryShort && distanceM != null ? (
+                  <span className="text-line">·</span>
+                ) : null}
+                {distanceM != null ? (
+                  <span className="font-medium tabular-nums text-ink/60">
+                    {formatDistanceMeters(distanceM)}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <ScoreRing score={recommendation} tone={tone} />
+          </div>
+
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            <span className="inline-flex items-center gap-1.5 text-ink/80">
+              <span className="rounded-md bg-local/10 px-1.5 py-0.5 text-[11px] font-bold text-local">
+                K
               </span>
-            ) : null}
-            {distanceM != null && categoryShort ? (
-              <span className="text-ink/20">·</span>
-            ) : null}
-            {categoryShort ? <span>{categoryShort}</span> : null}
+              {kakaoRating != null ? (
+                <>
+                  <span className="font-semibold tabular-nums">
+                    {kakaoRating.toFixed(1)}
+                  </span>
+                  {kakaoCount != null ? (
+                    <span className="text-mute">
+                      ({kakaoCount.toLocaleString()})
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                <span className="text-mute">
+                  {scores.local.availability === "insufficient_data"
+                    ? "리뷰 부족"
+                    : "데이터 없음"}
+                </span>
+              )}
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-ink/80">
+              <span className="rounded-md bg-global/10 px-1.5 py-0.5 text-[11px] font-bold text-global">
+                G
+              </span>
+              {googleRating != null ? (
+                <>
+                  <span className="font-semibold tabular-nums">
+                    {googleRating.toFixed(1)}
+                  </span>
+                  {googleCount != null ? (
+                    <span className="text-mute">
+                      ({googleCount.toLocaleString()})
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                <span className="text-mute">
+                  {scores.global.availability === "unmatched"
+                    ? "매칭 없음"
+                    : "데이터 없음"}
+                </span>
+              )}
+            </span>
           </div>
-        </div>
-        {statusBadge ? (
-          <span
-            className={`shrink-0 rounded-chip px-2.5 py-1 text-[11px] font-semibold tracking-wide ${statusBadge.className}`}
-          >
-            {statusBadge.text}
-          </span>
-        ) : null}
-      </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <RatingPill
-          label="Kakao"
-          rating={kakaoRating}
-          count={kakaoCount}
-          empty={
-            scores.local.availability === "insufficient_data"
-              ? "리뷰 부족"
-              : "보강 불가"
-          }
-        />
-        <RatingPill
-          label="Google"
-          rating={googleRating}
-          count={googleCount}
-          empty={
-            scores.global.availability === "unmatched"
-              ? "매칭 없음"
-              : "데이터 없음"
-          }
-        />
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="text-[11px] font-medium uppercase tracking-wide text-ink/35">
-            Recommendation
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <a
+              href={kakaoMapUrl(restaurant)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="rounded-chip border border-line bg-white px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-local/30 hover:bg-local/5 hover:text-ink"
+            >
+              Kakao
+            </a>
+            <a
+              href={googleMapUrl(restaurant)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="rounded-chip border border-line bg-white px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-global/30 hover:bg-global/5 hover:text-ink"
+            >
+              Google
+            </a>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect?.(restaurant.restaurant_id);
+              }}
+              className="rounded-chip bg-brand/10 px-3 py-1.5 text-xs font-semibold text-brand-dark transition hover:bg-brand/15"
+            >
+              Map
+            </button>
           </div>
-          <div className="mt-0.5 text-2xl font-semibold tabular-nums tracking-tight text-ink">
-            {recommendation != null ? recommendation.toFixed(1) : "—"}
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          <a
-            href={kakaoMapUrl(restaurant)}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="rounded-chip border border-ink/10 bg-white px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-ink/20 hover:bg-mist/60 hover:text-ink"
-          >
-            Kakao
-          </a>
-          <a
-            href={googleMapUrl(restaurant)}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="rounded-chip border border-ink/10 bg-white px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-ink/20 hover:bg-mist/60 hover:text-ink"
-          >
-            Google
-          </a>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect?.(restaurant.restaurant_id);
-            }}
-            className="rounded-chip bg-leaf/10 px-3 py-1.5 text-xs font-semibold text-leaf transition hover:bg-leaf/15"
-          >
-            Map
-          </button>
         </div>
       </div>
     </article>
