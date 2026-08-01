@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+} from "react";
 import { fetchLocations, searchRestaurants, toLocationPayload } from "@/lib/api";
 import {
   CITIES,
@@ -31,6 +39,23 @@ const CITY_LABEL: Record<string, string> = Object.fromEntries(
 
 const PAGE_SIZE = 10;
 
+/** Run action on mousedown so a focused text field/IME cannot eat the first tap. */
+function pressProps(action: () => void) {
+  return {
+    onMouseDown: (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      action();
+    },
+    onKeyDown: (e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        action();
+      }
+    },
+  };
+}
+
 type CoverageFilter = "all" | RatingCoverage;
 
 const COVERAGE_TABS: { id: CoverageFilter; label: string }[] = [
@@ -60,10 +85,13 @@ export function SearchPage() {
   const listRef = useRef<HTMLDivElement | null>(null);
   const filterInputRef = useRef<HTMLInputElement | null>(null);
   const queryInputRef = useRef<HTMLInputElement | null>(null);
+  const suggestionListRef = useRef<HTMLUListElement | null>(null);
   const filterDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedRef = useRef<LocationCatalogItem[]>([]);
   const searchingRef = useRef(false);
   const filteredRef = useRef<LocationCatalogItem[]>([]);
+  const filterValueRef = useRef("");
+  const addLocationRef = useRef<(item: LocationCatalogItem) => void>(() => {});
 
   useEffect(() => {
     // Refresh / shared links must not restore a previous search session.
@@ -196,24 +224,85 @@ export function SearchPage() {
     filteredRef.current = filtered;
   }, [filtered]);
 
+  useEffect(() => {
+    filterValueRef.current = filter;
+  }, [filter]);
+
   /** Add from the suggestion list (idempotent). Deselect only via chip ×. */
-  function addLocation(item: LocationCatalogItem) {
+  const addLocation = useCallback((item: LocationCatalogItem) => {
     setSelected((prev) => {
       if (prev.some((s) => s.id === item.id)) return prev;
       return [...prev, item];
     });
     setFilter("");
     filterInputRef.current?.blur();
-  }
+  }, []);
+
+  useEffect(() => {
+    addLocationRef.current = addLocation;
+  }, [addLocation]);
+
+  // Capture-phase listener: select BEFORE the filter input blurs / IME focus loss.
+  // React onClick/onMouseDown on the button is too late when a text field is focused.
+  useEffect(() => {
+    const pickFromEvent = (e: Event) => {
+      const ul = suggestionListRef.current;
+      if (!ul) return;
+      const el = (e.target as HTMLElement | null)?.closest?.(
+        "[data-location-id]",
+      ) as HTMLElement | null;
+      if (!el || !ul.contains(el)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const id = el.getAttribute("data-location-id");
+      if (!id) return;
+      const item = filteredRef.current.find((x) => x.id === id);
+      if (item) addLocationRef.current(item);
+    };
+    document.addEventListener("pointerdown", pickFromEvent, true);
+    document.addEventListener("mousedown", pickFromEvent, true);
+    return () => {
+      document.removeEventListener("pointerdown", pickFromEvent, true);
+      document.removeEventListener("mousedown", pickFromEvent, true);
+    };
+  }, []);
 
   function removeLocation(id: string) {
     setSelected((prev) => prev.filter((s) => s.id !== id));
   }
 
+  function resolveBlurSelection(): LocationCatalogItem | null {
+    const items = filteredRef.current;
+    const q = filterValueRef.current.trim();
+    if (!q || items.length === 0) return null;
+    const exact = items.find(
+      (i) =>
+        i.name === q ||
+        i.name === `${q}역` ||
+        i.name.toLowerCase() === q.toLowerCase(),
+    );
+    if (exact) return exact;
+    if (items.length === 1) return items[0];
+    return null;
+  }
+
   const runSearch = useCallback(async () => {
     if (searchingRef.current) return;
     setError(null);
-    const currentSelected = selectedRef.current;
+
+    // If the user typed a unique station (e.g. 지행) but IME ate the list
+    // click, adopt that match so Search still works on the first press.
+    let currentSelected = selectedRef.current;
+    if (currentSelected.length === 0) {
+      const inferred = resolveBlurSelection();
+      if (inferred) {
+        currentSelected = [inferred];
+        selectedRef.current = currentSelected;
+        setSelected(currentSelected);
+        setFilter("");
+      }
+    }
+
     if (currentSelected.length === 0) {
       setError("검색할 위치를 하나 이상 선택하세요.");
       return;
@@ -224,6 +313,7 @@ export function SearchPage() {
     setCoverageFilter("all");
     setPage(1);
     queryInputRef.current?.blur();
+    filterInputRef.current?.blur();
     try {
       // Use the selected place's city for the API only — do not setCity here.
       // setCity would re-run the city/mode effect and wipe selection + results.
@@ -291,7 +381,7 @@ export function SearchPage() {
                   type="button"
                   role="radio"
                   aria-checked={active}
-                  onClick={() => setCity(c.value)}
+                  {...pressProps(() => setCity(c.value))}
                   className={`border px-3.5 py-2 text-sm font-medium transition ${
                     active
                       ? "border-leaf bg-leaf text-white shadow-sm"
@@ -320,7 +410,7 @@ export function SearchPage() {
                   type="button"
                   role="radio"
                   aria-checked={active}
-                  onClick={() => setMode(m.value)}
+                  {...pressProps(() => setMode(m.value))}
                   className={`border px-3 py-3 text-sm font-semibold transition sm:py-3.5 ${
                     active
                       ? "border-leaf bg-leaf text-white shadow-sm"
@@ -343,7 +433,7 @@ export function SearchPage() {
                 <button
                   key={r}
                   type="button"
-                  onClick={() => setRadiusM(r)}
+                  {...pressProps(() => setRadiusM(r))}
                   className={`border px-3 py-1.5 text-sm transition ${
                     active
                       ? "border-leaf bg-leaf text-white"
@@ -373,7 +463,7 @@ export function SearchPage() {
                   {item.name}
                   <button
                     type="button"
-                    onClick={() => removeLocation(item.id)}
+                    {...pressProps(() => removeLocation(item.id))}
                     className="px-2 py-1 text-leaf/70 hover:bg-leaf/15 hover:text-leaf"
                     aria-label={`${item.name} 제거`}
                   >
@@ -404,24 +494,39 @@ export function SearchPage() {
               if (first) addLocation(first);
             }}
             onBlur={(e) => {
-              // If the user left the field by pressing a suggestion, select it
-              // even when IME/focus quirks swallow the button click.
-              const target = e.relatedTarget as HTMLElement | null;
-              const id = target?.getAttribute?.("data-location-id");
-              if (!id) return;
-              const item = filteredRef.current.find((x) => x.id === id);
-              if (item) addLocation(item);
+              const related = e.relatedTarget as HTMLElement | null;
+              const viaOption = related?.closest?.(
+                "[data-location-id]",
+              ) as HTMLElement | null;
+              if (viaOption) {
+                const id = viaOption.getAttribute("data-location-id");
+                const item = filteredRef.current.find((x) => x.id === id);
+                if (item) addLocation(item);
+                return;
+              }
+              // IME often eats the first outside click (composition ends, click
+              // never arrives). Defer so we still pick a unique/exact match.
+              window.setTimeout(() => {
+                if (document.activeElement === filterInputRef.current) return;
+                const choice = resolveBlurSelection();
+                if (choice) addLocationRef.current(choice);
+              }, 0);
             }}
           />
           <p className="mt-1.5 text-xs text-ink/45">
             {mode === "station"
-              ? "기본은 선택한 지역 역 목록입니다. 이름을 입력하면 전국 역도 검색됩니다."
+              ? "기본은 선택한 지역 역 목록입니다. 이름을 입력하면 전국 역도 검색됩니다. Enter로도 첫 결과를 선택할 수 있습니다."
               : mode === "bus_stop"
                 ? "정류장 이름을 입력하면 선택한 지역 주변 버스정류장을 찾습니다."
                 : "동 이름을 입력하면 행정동/법정동을 찾습니다."}
             {catalogLoading ? " · 불러오는 중…" : ""}
           </p>
-          <ul className="mt-2 max-h-40 overflow-auto border border-ink/10 bg-white">
+          <ul
+            ref={suggestionListRef}
+            className="mt-2 max-h-40 overflow-auto border border-ink/10 bg-white"
+            role="listbox"
+            aria-label={`${modeLabel} 검색 결과`}
+          >
             {filtered.length === 0 ? (
               <li className="px-3 py-2 text-sm text-ink/45">
                 {mode === "bus_stop" && filter.trim().length < 2
@@ -432,32 +537,23 @@ export function SearchPage() {
               filtered.map((item) => {
                 const active = selected.some((s) => s.id === item.id);
                 return (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      data-location-id={item.id}
-                      // Classic combobox: block input blur on mousedown, select on click.
-                      // addLocation is idempotent so duplicate events cannot undo selection.
-                      onMouseDown={(e) => {
-                        if (e.button !== 0) return;
-                        e.preventDefault();
-                        addLocation(item);
-                      }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        addLocation(item);
-                      }}
-                      className={`flex w-full cursor-pointer touch-manipulation items-center justify-between px-3 py-2 text-left text-sm hover:bg-mist/80 ${
-                        active ? "bg-leaf/10 text-leaf" : "text-ink"
-                      }`}
-                    >
-                      <span>{item.name}</span>
-                      <span className="text-xs text-ink/40">
-                        {active
-                          ? "선택됨"
-                          : CITY_LABEL[item.city] || item.name_en || item.city}
-                      </span>
-                    </button>
+                  <li
+                    key={item.id}
+                    role="option"
+                    aria-selected={active}
+                    data-location-id={item.id}
+                    // Selection is handled by document capture-phase listeners
+                    // on [data-location-id] (must live on the hit target itself).
+                    className={`flex w-full cursor-pointer touch-manipulation items-center justify-between px-3 py-2 text-left text-sm hover:bg-mist/80 ${
+                      active ? "bg-leaf/10 text-leaf" : "text-ink"
+                    }`}
+                  >
+                    <span>{item.name}</span>
+                    <span className="text-xs text-ink/40">
+                      {active
+                        ? "선택됨"
+                        : CITY_LABEL[item.city] || item.name_en || item.city}
+                    </span>
                   </li>
                 );
               })
@@ -494,16 +590,9 @@ export function SearchPage() {
         <button
           type="submit"
           disabled={loading}
-          onPointerDown={(e) => {
-            if (e.button !== 0 || loading) return;
-            e.preventDefault();
-            void runSearch();
-          }}
-          onMouseDown={(e) => {
-            if (e.button !== 0 || loading) return;
-            e.preventDefault();
-            void runSearch();
-          }}
+          {...pressProps(() => {
+            if (!loading) void runSearch();
+          })}
           className="w-full cursor-pointer touch-manipulation bg-leaf px-4 py-2.5 text-sm font-medium text-white transition hover:bg-leaf/90 disabled:opacity-60 sm:w-auto"
         >
           {loading ? "검색 중…" : "검색"}
