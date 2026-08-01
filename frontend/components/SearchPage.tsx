@@ -95,6 +95,7 @@ export function SearchPage() {
   const selectedRef = useRef<LocationCatalogItem[]>([]);
   const searchingRef = useRef(false);
   const filteredRef = useRef<LocationCatalogItem[]>([]);
+  const catalogByIdRef = useRef<Map<string, LocationCatalogItem>>(new Map());
   const filterValueRef = useRef("");
   const addLocationRef = useRef<(item: LocationCatalogItem) => void>(() => {});
   const composingRef = useRef(false);
@@ -103,6 +104,8 @@ export function SearchPage() {
   const lastPickedIdRef = useRef<{ id: string; at: number } | null>(null);
   const ignoreBlurPickUntilRef = useRef(0);
   const imePointerDownRef = useRef(false);
+  /** After a successful pick, ignore IME compositionEnd recovery (list may reshuffle). */
+  const suppressImeRecoverRef = useRef(false);
 
   useEffect(() => {
     // Refresh / shared links must not restore a previous search session.
@@ -170,20 +173,23 @@ export function SearchPage() {
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    let items = catalog;
     if (mode === "station") {
       if (!q) {
-        items = catalog.filter((item) => item.city === city);
-      } else {
-        items = catalog.filter(
+        // Show the full city catalog (Seoul alone is ~465). The old slice(0, 80)
+        // hid 합정/홍대/압구정/지행 등 — those required typing + IME, which made
+        // picks feel flaky compared to early alphabet stations like 강남.
+        return catalog.filter((item) => item.city === city);
+      }
+      return catalog
+        .filter(
           (item) =>
             item.name.toLowerCase().includes(q) ||
             (item.name_en?.toLowerCase().includes(q) ?? false),
-        );
-      }
+        )
+        .slice(0, 120);
     }
     // bus_stop / neighborhood: catalog already comes from live/seed query
-    return items.slice(0, 80);
+    return catalog.slice(0, 120);
   }, [catalog, filter, mode, city]);
 
   const modeLabel =
@@ -236,8 +242,19 @@ export function SearchPage() {
   }, [filtered]);
 
   useEffect(() => {
+    const map = new Map<string, LocationCatalogItem>();
+    for (const item of catalog) map.set(item.id, item);
+    catalogByIdRef.current = map;
+  }, [catalog]);
+
+  useEffect(() => {
     filterValueRef.current = filter;
   }, [filter]);
+
+  function locationById(id: string | null | undefined): LocationCatalogItem | null {
+    if (!id) return null;
+    return catalogByIdRef.current.get(id) ?? null;
+  }
 
   /** Add from the suggestion list (idempotent). Deselect only via chip ×. */
   const addLocation = useCallback((item: LocationCatalogItem) => {
@@ -249,15 +266,21 @@ export function SearchPage() {
     if (last && last.id === item.id && now - last.at < 350) return;
     lastPickedIdRef.current = { id: item.id, at: now };
     ignoreBlurPickUntilRef.current = now + 500;
+    suppressImeRecoverRef.current = true;
 
     setSelected((prev) => {
       if (prev.some((s) => s.id === item.id)) return prev;
       return [...prev, item];
     });
 
-    // Clear query so the next station can be typed/picked immediately.
-    // Keep input focus (no blur) — blurring forced an extra click before the 2nd pick.
-    setFilter("");
+    // Keep focus; clear the query on the next frame so IME compositionEnd
+    // still sees the row that was clicked if recovery races the clear.
+    window.requestAnimationFrame(() => {
+      setFilter("");
+      window.setTimeout(() => {
+        suppressImeRecoverRef.current = false;
+      }, 400);
+    });
   }, []);
 
   useEffect(() => {
@@ -275,9 +298,7 @@ export function SearchPage() {
       "[data-location-id]",
     ) as HTMLElement | null;
     if (!row || !ul.contains(row)) return null;
-    const id = row.getAttribute("data-location-id");
-    if (!id) return null;
-    return filteredRef.current.find((item) => item.id === id) ?? null;
+    return locationById(row.getAttribute("data-location-id"));
   }
 
   function resolveBlurSelection(): LocationCatalogItem | null {
@@ -297,19 +318,15 @@ export function SearchPage() {
 
   /** Recover selection when IME swallows the click and only compositionend fires. */
   function recoverImeSuggestionPick() {
+    if (suppressImeRecoverRef.current) return;
     const { x, y } = lastPointerRef.current;
     const under = locationAtClientPoint(x, y);
     if (under) {
       addLocationRef.current(under);
       return;
     }
-    const ul = suggestionListRef.current;
-    if (!ul) return;
-    const rect = ul.getBoundingClientRect();
-    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-      return;
-    }
-    const choice = resolveBlurSelection() ?? filteredRef.current[0] ?? null;
+    // Only auto-pick on exact/unique query match — never "first row" (wrong station).
+    const choice = resolveBlurSelection();
     if (choice) addLocationRef.current(choice);
   }
 
@@ -338,8 +355,7 @@ export function SearchPage() {
           "[data-location-id]",
         ) as HTMLElement | null;
         if (!el || !ul.contains(el)) return null;
-        const id = el.getAttribute("data-location-id");
-        return filteredRef.current.find((x) => x.id === id) ?? null;
+        return locationById(el.getAttribute("data-location-id"));
       })();
       const item = under || fromTarget;
       if (!item) return false;
@@ -635,8 +651,9 @@ export function SearchPage() {
               "[data-location-id]",
             ) as HTMLElement | null;
             if (viaOption) {
-              const id = viaOption.getAttribute("data-location-id");
-              const item = filteredRef.current.find((x) => x.id === id);
+              const item = locationById(
+                viaOption.getAttribute("data-location-id"),
+              );
               if (item) addLocation(item);
               return;
             }
@@ -656,7 +673,7 @@ export function SearchPage() {
         />
         <ul
           ref={suggestionListRef}
-          className="mt-2 max-h-40 overflow-auto rounded-2xl bg-white ring-1 ring-line"
+          className="mt-2 max-h-56 overflow-auto rounded-2xl bg-white ring-1 ring-line"
           role="listbox"
           aria-label={`${modeLabel} 검색 결과`}
         >
