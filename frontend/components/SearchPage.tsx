@@ -99,7 +99,8 @@ export function SearchPage() {
   const addLocationRef = useRef<(item: LocationCatalogItem) => void>(() => {});
   const composingRef = useRef(false);
   const lastPointerRef = useRef({ x: 0, y: 0 });
-  const pickLockRef = useRef(false);
+  /** Same-id debounce only — must not block picking a different station next. */
+  const lastPickedIdRef = useRef<{ id: string; at: number } | null>(null);
   const ignoreBlurPickUntilRef = useRef(0);
   const imePointerDownRef = useRef(false);
 
@@ -240,22 +241,23 @@ export function SearchPage() {
 
   /** Add from the suggestion list (idempotent). Deselect only via chip ×. */
   const addLocation = useCallback((item: LocationCatalogItem) => {
-    if (pickLockRef.current) return;
-    pickLockRef.current = true;
-    ignoreBlurPickUntilRef.current = Date.now() + 500;
+    // Already selected: ignore quietly (no global lock — that blocked the next station).
+    if (selectedRef.current.some((s) => s.id === item.id)) return;
+
+    const now = Date.now();
+    const last = lastPickedIdRef.current;
+    if (last && last.id === item.id && now - last.at < 350) return;
+    lastPickedIdRef.current = { id: item.id, at: now };
+    ignoreBlurPickUntilRef.current = now + 500;
 
     setSelected((prev) => {
       if (prev.some((s) => s.id === item.id)) return prev;
       return [...prev, item];
     });
 
-    // Defer clearing the filter so the list does not reshuffle under the
-    // still-active pointer/IME gesture (that was making search-picks need 2 taps).
-    window.setTimeout(() => {
-      setFilter("");
-      filterInputRef.current?.blur();
-      pickLockRef.current = false;
-    }, 100);
+    // Clear query so the next station can be typed/picked immediately.
+    // Keep input focus (no blur) — blurring forced an extra click before the 2nd pick.
+    setFilter("");
   }, []);
 
   useEffect(() => {
@@ -295,7 +297,6 @@ export function SearchPage() {
 
   /** Recover selection when IME swallows the click and only compositionend fires. */
   function recoverImeSuggestionPick() {
-    if (pickLockRef.current) return;
     const { x, y } = lastPointerRef.current;
     const under = locationAtClientPoint(x, y);
     if (under) {
@@ -316,17 +317,18 @@ export function SearchPage() {
   // During Korean IME composition the browser may drop/retarget the click so
   // target is wrong — clientX/Y still point at the hovered suggestion.
   useEffect(() => {
-    let handledByPointerDown = false;
+    /** Only suppress the paired mousedown when pointerdown actually picked. */
+    let pickedOnPointerDown = false;
 
     const trackPointer = (e: PointerEvent) => {
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
     };
 
-    const pickFromCoords = (e: Event) => {
+    const pickFromCoords = (e: Event): boolean => {
       const ul = suggestionListRef.current;
-      if (!ul || pickLockRef.current) return;
+      if (!ul) return false;
       const pe = e as PointerEvent | MouseEvent;
-      if (!("clientX" in pe)) return;
+      if (!("clientX" in pe)) return false;
       lastPointerRef.current = { x: pe.clientX, y: pe.clientY };
       if (composingRef.current) imePointerDownRef.current = true;
 
@@ -340,33 +342,41 @@ export function SearchPage() {
         return filteredRef.current.find((x) => x.id === id) ?? null;
       })();
       const item = under || fromTarget;
-      if (!item) return;
+      if (!item) return false;
 
       e.preventDefault();
       e.stopPropagation();
       addLocationRef.current(item);
+      return true;
     };
 
     const onPointerDown = (e: Event) => {
-      handledByPointerDown = true;
-      pickFromCoords(e);
+      pickedOnPointerDown = pickFromCoords(e);
     };
     const onMouseDown = (e: Event) => {
-      // Safari / IME paths may skip PointerEvent; avoid double-handling.
-      if (handledByPointerDown) {
-        handledByPointerDown = false;
+      // Safari / IME paths may skip PointerEvent; avoid double-handling
+      // only when pointerdown already selected a station.
+      if (pickedOnPointerDown) {
+        pickedOnPointerDown = false;
         return;
       }
       pickFromCoords(e);
+    };
+    const onPointerUp = () => {
+      pickedOnPointerDown = false;
     };
 
     document.addEventListener("pointermove", trackPointer, true);
     document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("mousedown", onMouseDown, true);
+    document.addEventListener("pointerup", onPointerUp, true);
+    document.addEventListener("pointercancel", onPointerUp, true);
     return () => {
       document.removeEventListener("pointermove", trackPointer, true);
       document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("mousedown", onMouseDown, true);
+      document.removeEventListener("pointerup", onPointerUp, true);
+      document.removeEventListener("pointercancel", onPointerUp, true);
     };
   }, []);
 
@@ -667,6 +677,12 @@ export function SearchPage() {
                   role="option"
                   aria-selected={active}
                   data-location-id={item.id}
+                  onPointerDown={(e) => {
+                    if (active) return;
+                    // Backup if document capture misses (still same-id debounced).
+                    e.preventDefault();
+                    addLocation(item);
+                  }}
                   className={`flex w-full cursor-pointer touch-manipulation items-center justify-between px-4 py-2.5 text-left text-sm transition ${
                     active
                       ? "bg-brand/10 font-medium text-brand-dark"
