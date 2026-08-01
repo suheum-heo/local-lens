@@ -11,6 +11,8 @@ Notes:
     official administrative-boundary filtering in this API.
   - Kakao pageable results cap at ~45 per query+origin. Broad food queries therefore
     fan out across a small grid of origins and merge/dedupe within the search radius.
+  - Umbrella cuisine terms (e.g. 양식) expand to related Kakao keywords so places
+    tagged as 패밀리레스토랑 / 파스타 still appear when the food intent matches.
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from app.domain.contracts import DEFAULT_FOOD_QUERY
 from app.domain.locations import SearchArea
 from app.domain.models import KakaoPlaceData
 from app.providers.base import KakaoLocalProvider
+from app.providers.cuisine_queries import expand_food_queries
 from app.providers.errors import ApiCallCounter, ProviderAPIError, ProviderConfigError
 
 logger = logging.getLogger(__name__)
@@ -76,10 +79,12 @@ class LiveKakaoLocalProvider(KakaoLocalProvider):
     ) -> list[KakaoPlaceData]:
         headers = {"Authorization": f"KakaoAK {self._api_key}"}
         radius = min(max(area.radius_m, 1), 20000)
+        # Grid fan-out is driven by the user's term (맛집), not expanded synonyms.
         origins = _search_origins(
             area.latitude, area.longitude, radius, query=query
         )
         cell_radius = _cell_radius_m(radius, origin_count=len(origins))
+        queries = expand_food_queries(query)
 
         async with httpx.AsyncClient(
             timeout=REQUEST_TIMEOUT_S,
@@ -90,11 +95,12 @@ class LiveKakaoLocalProvider(KakaoLocalProvider):
                     self._search_at_origin(
                         client,
                         headers=headers,
-                        query=query,
+                        query=q,
                         latitude=lat,
                         longitude=lon,
                         radius_m=cell_radius,
                     )
+                    for q in queries
                     for lat, lon in origins
                 ]
             )

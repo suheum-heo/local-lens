@@ -50,6 +50,8 @@ Billing uses Places API (New) SKUs (Text Search / Place Details). Legacy Find Pl
 
 **Broad food queries** (`맛집` / empty → default): Kakao’s ~45 pageable ceiling hides restaurants that are inside the radius but not among the nearest pack. LocalLens fans out the same keyword search across a tight cardinal grid (~200–280 m steps; a second ring for ≥1.2 km), merges by Kakao place id, and keeps only places within the original radius. Specific cuisine/name queries still use a single origin.
 
+**Cuisine intent expansion:** Umbrella food terms (e.g. `양식`) also search related Kakao keywords (`패밀리레스토랑`, `파스타`, `피자`, …) because Kakao’s category tree often tags Western-style places outside `음식점 > 양식`. Results are merged by place id. Place-name queries are not expanded.
+
 ### Kakao Map place-detail enrichment (unofficial)
 
 Official Local APIs do not expose map reviews. After keyword discovery + dedupe, live mode calls a **public but unofficial** Kakao Map review-tab endpoint to fill `rating` / `review_count` when present:

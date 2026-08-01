@@ -103,8 +103,8 @@ async def test_live_kakao_parses_and_paginates():
         counter=counter,
         max_pages=3,
     )
-    # Specific cuisine/name → single origin (no broad-query grid).
-    results = await provider.search_restaurants(_area(), "한식")
+    # Specific dish/name → single origin, no cuisine expansion / broad grid.
+    results = await provider.search_restaurants(_area(), "칼국수")
     assert {r.kakao_place_id for r in results} == {"1", "2", "3"}
     assert all(r.rating is None and r.review_count is None for r in results)
     assert counter.kakao_keyword == 2
