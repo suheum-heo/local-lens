@@ -94,22 +94,38 @@ function FitAndFocus({
       ),
     ];
     if (points.length === 0) return;
-    map.invalidateSize();
-    if (points.length === 1) {
-      map.setView(points[0], 15);
-      return;
-    }
-    const bounds = L.latLngBounds(points);
-    map.fitBounds(bounds.pad(0.18));
+
+    // Defer until layout is painted — iOS Safari often has 0×0 size right
+    // after the map pane becomes visible (was display:none).
+    const id = window.requestAnimationFrame(() => {
+      try {
+        map.invalidateSize();
+        if (points.length === 1) {
+          map.setView(points[0], 15);
+          return;
+        }
+        const bounds = L.latLngBounds(points);
+        if (bounds.isValid()) {
+          map.fitBounds(bounds.pad(0.18));
+        }
+      } catch (err) {
+        console.warn("ResultsMap fitBounds skipped", err);
+      }
+    });
+    return () => window.cancelAnimationFrame(id);
   }, [map, areas, restaurants]);
 
   useEffect(() => {
     if (!selectedRestaurantId) return;
     const r = restaurants.find((x) => x.restaurant_id === selectedRestaurantId);
     if (!r) return;
-    map.flyTo([r.latitude, r.longitude], Math.max(map.getZoom(), 16), {
-      duration: 0.5,
-    });
+    try {
+      map.flyTo([r.latitude, r.longitude], Math.max(map.getZoom(), 16), {
+        duration: 0.5,
+      });
+    } catch (err) {
+      console.warn("ResultsMap flyTo skipped", err);
+    }
   }, [map, restaurants, selectedRestaurantId]);
 
   return null;
@@ -148,6 +164,8 @@ export function ResultsMap({
         zoom={14}
         className="h-full w-full"
         scrollWheelZoom={false}
+        // Prefer canvas paths on mobile WebKit; SVG + many circles can hang.
+        preferCanvas
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'

@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { ComponentProps } from "react";
+import { MapErrorBoundary } from "./MapErrorBoundary";
 
 const ResultsMapInner = dynamic(
   () => import("./ResultsMap").then((m) => m.ResultsMap),
@@ -18,5 +19,9 @@ const ResultsMapInner = dynamic(
 export function ResultsMapClient(
   props: ComponentProps<typeof ResultsMapInner>,
 ) {
-  return <ResultsMapInner {...props} />;
+  return (
+    <MapErrorBoundary>
+      <ResultsMapInner {...props} />
+    </MapErrorBoundary>
+  );
 }

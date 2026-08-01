@@ -49,6 +49,8 @@ const CITY_LABEL: Record<string, string> = Object.fromEntries(
 );
 
 const PAGE_SIZE = 10;
+/** Cap markers so iOS Safari does not OOM on large live result sets. */
+const MAP_MARKER_LIMIT = 60;
 
 /** Run action on mousedown so a focused text field/IME cannot eat the first tap. */
 function pressProps(action: () => void) {
@@ -87,6 +89,8 @@ export function SearchPage() {
   const [page, setPage] = useState(1);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [mobilePane, setMobilePane] = useState<"list" | "map">("list");
+  /** Leaflet must not init inside display:none on iOS Safari. */
+  const [isDesktopLayout, setIsDesktopLayout] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
   const filterInputRef = useRef<HTMLInputElement | null>(null);
   const queryInputRef = useRef<HTMLInputElement | null>(null);
@@ -114,6 +118,14 @@ export function SearchPage() {
     if (typeof window !== "undefined" && window.location.search) {
       window.history.replaceState(null, "", window.location.pathname);
     }
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setIsDesktopLayout(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
   }, []);
 
   // Reset selection when city/mode changes; load base catalog.
@@ -237,6 +249,22 @@ export function SearchPage() {
     if (coverageFilter === "all") return result.results;
     return result.results.filter((r) => r.rating_coverage === coverageFilter);
   }, [result, coverageFilter]);
+
+  const mapRestaurants = useMemo(() => {
+    if (!selectedRestaurantId) {
+      return filteredResults.slice(0, MAP_MARKER_LIMIT);
+    }
+    const selected = filteredResults.find(
+      (r) => r.restaurant_id === selectedRestaurantId,
+    );
+    const rest = filteredResults
+      .filter((r) => r.restaurant_id !== selectedRestaurantId)
+      .slice(0, MAP_MARKER_LIMIT - (selected ? 1 : 0));
+    return selected ? [selected, ...rest] : rest;
+  }, [filteredResults, selectedRestaurantId]);
+
+  /** Mount map only when visible — hidden Leaflet containers crash iOS Safari. */
+  const showResultsMap = isDesktopLayout || mobilePane === "map";
 
   const totalPages = Math.max(1, Math.ceil(filteredResults.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -1048,22 +1076,33 @@ export function SearchPage() {
                 }`}
               >
                 <div className="h-[22rem] sm:h-[28rem] lg:h-[min(72vh,42rem)]">
-                  {mapAreas.length > 0 ? (
+                  {mapAreas.length > 0 && showResultsMap ? (
                     <ResultsMapClient
+                      key={`results-map-${mobilePane}-${isDesktopLayout ? "lg" : "sm"}`}
                       areas={mapAreas}
-                      restaurants={filteredResults}
+                      restaurants={mapRestaurants}
                       selectedRestaurantId={selectedRestaurantId}
                       onSelectRestaurant={(id) => {
                         setMobilePane("list");
                         selectRestaurant(id);
                       }}
                     />
+                  ) : mapAreas.length > 0 ? (
+                    <div className="flex h-full items-center justify-center rounded-card bg-card text-sm text-mute shadow-soft ring-1 ring-line">
+                      지도 탭을 누르면 표시됩니다
+                    </div>
                   ) : (
                     <div className="flex h-full items-center justify-center rounded-card bg-card text-sm text-mute shadow-soft ring-1 ring-line">
                       위치를 선택하면 지도가 표시됩니다
                     </div>
                   )}
                 </div>
+                {showResultsMap &&
+                filteredResults.length > MAP_MARKER_LIMIT ? (
+                  <p className="mt-2 text-center text-xs text-mute lg:text-left">
+                    지도에는 상위 {MAP_MARKER_LIMIT}곳만 표시해요
+                  </p>
+                ) : null}
               </div>
             </div>
           </section>
