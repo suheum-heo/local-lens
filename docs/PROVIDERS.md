@@ -81,10 +81,10 @@ Official Local APIs do not expose map reviews. After keyword discovery + dedupe,
   - `X-Goog-Api-Key: <GOOGLE_PLACES_API_KEY>`
   - `X-Goog-FieldMask:` (required; no `*` wildcards)
 
-**Field mask (matching + scoring):**
+**Field mask (matching + scoring + representative photo):**
 
 ```text
-places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount
+places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.photos
 ```
 
 **Request body (focused):**
@@ -95,16 +95,27 @@ places.id,places.displayName,places.formattedAddress,places.location,places.rati
 - `pageSize=5`
 - `locationBias.circle` — Kakao coordinates, radius **500 m**
 
-**Supplies:** place id, display name, formatted address, coordinates, rating, user rating count.
+**Supplies:** place id, display name, formatted address, coordinates, rating, user rating count, first photo resource name + author attributions when present.
 
-**Does not request:** `places.reviews` (scoring only needs rating + count).
+**Does not request:** `places.reviews` (scoring only needs rating + count). Photo **media bytes** are not fetched during search.
 
 #### Place Details (New) — conditional fallback only
 
 - `GET https://places.googleapis.com/v1/places/{place_id}`
-- Field mask: `id,displayName,formattedAddress,location,rating,userRatingCount`
+- Field mask: `id,displayName,formattedAddress,location,rating,userRatingCount` (+ `photos` only when the cached place still has no `photo_name`)
 
-Invoked **only** when Text Search accepted a match but `rating` or `userRatingCount` is missing. In the usual case Text Search already returns both and Details is skipped.
+Invoked **only** when Text Search accepted a match but `rating` or `userRatingCount` is missing. Details is never called solely to obtain a photo.
+
+#### Place Photos (New) — backend proxy only
+
+- `GET https://places.googleapis.com/v1/{photo_name}/media?maxWidthPx=800`
+- LocalLens exposes `GET /api/restaurants/photo?photo_name=…` so the browser never sees `GOOGLE_PLACES_API_KEY`
+- Search responses include optional `photo_name` / `photo_url` (proxy path) / `photo_attributions`
+- One representative photo per restaurant (first Google photo)
+- Photo media is fetched lazily when a result card renders the image; not during `/api/search`
+- Counted as `api_calls.google_place_photo` only when the proxy is hit
+- Mock mode serves a branded SVG for `…/photos/mock_*` names (no external image hosts)
+- Photo bytes are not persisted; author attributions are shown unobtrusively on the card when present
 
 ## Kakao → Google matching
 
@@ -126,6 +137,9 @@ POST /api/search
        → Places Text Search (New)    # ≤ 1 per unique place (cached; concurrency 8)
        → Places Details (New)         # only if rating/count missing after search
   → ScoringEngine
+
+GET /api/restaurants/photo?photo_name=…
+  → Place Photos (New) media          # lazy; only for visible cards
 ```
 
 `SearchMeta.api_calls` (live) reports:
@@ -136,9 +150,12 @@ POST /api/search
   "kakao_place_detail": 12,
   "google_search_text": 12,
   "google_details": 0,
+  "google_place_photo": 0,
   "total": 25
 }
 ```
+
+Note: `google_place_photo` increments on `GET /api/restaurants/photo`, not inside `/api/search`.
 
 ## Billing considerations (Google Places API New)
 
@@ -146,8 +163,10 @@ POST /api/search
 |--------------|------|-------------------------|
 | `places.id`, `displayName`, `formattedAddress`, `location` | Matching | Always in Text Search mask |
 | `places.rating`, `places.userRatingCount` | Global Score | Always in Text Search mask (Enterprise/Pro SKUs apply per Google’s field pricing) |
+| `places.photos` | Representative card image | Metadata in Text Search; media via proxy only when a card loads |
 | `places.reviews` | Optional metadata | **Not requested** |
 | Place Details (New) | Fallback | Only when search omitted rating/count |
+| Place Photos (New) media | Card image bytes | Lazy `GET /api/restaurants/photo` only |
 
 Also:
 

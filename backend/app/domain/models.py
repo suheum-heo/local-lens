@@ -41,6 +41,10 @@ class GooglePlaceData(BaseModel):
     rating: float | None = None
     user_rating_count: int | None = None
     review_metadata: list[dict[str, Any]] = Field(default_factory=list)
+    # Places API (New) photo resource name, e.g. places/ChIJ…/photos/…
+    # Never stores API keys or credentialed media URLs.
+    photo_name: str | None = None
+    photo_attributions: list[str] = Field(default_factory=list)
 
 
 class PlaceMatchResult(BaseModel):
@@ -94,6 +98,10 @@ class Restaurant(BaseModel):
     label: RestaurantLabel | None = None
     rating_coverage: RatingCoverage = RatingCoverage.NONE
     source_area_ids: list[str] = Field(default_factory=list)
+    # Representative Google photo (optional). photo_url is a LocalLens proxy path only.
+    photo_name: str | None = None
+    photo_url: str | None = None
+    photo_attributions: list[str] = Field(default_factory=list)
 
 
 # Rebuild for forward refs if needed

@@ -74,6 +74,8 @@ export interface Restaurant {
     name: string;
     rating: number | null;
     user_rating_count: number | null;
+    photo_name?: string | null;
+    photo_attributions?: string[];
   } | null;
   match: {
     confidence: number;
@@ -85,6 +87,11 @@ export interface Restaurant {
   label: RestaurantLabel | null;
   rating_coverage: RatingCoverage;
   source_area_ids?: string[];
+  /** Places photo resource name when available. */
+  photo_name?: string | null;
+  /** LocalLens backend proxy path only — never a Google URL with API key. */
+  photo_url?: string | null;
+  photo_attributions?: string[];
 }
 
 export interface SearchResponse {
@@ -102,6 +109,7 @@ export interface SearchResponse {
       kakao_place_detail: number;
       google_search_text: number;
       google_details: number;
+      google_place_photo?: number;
       total: number;
     } | null;
   };

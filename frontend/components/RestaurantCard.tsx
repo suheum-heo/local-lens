@@ -1,5 +1,9 @@
+"use client";
+
+import { useState } from "react";
 import { googleMapUrl, kakaoMapUrl } from "@/lib/mapLinks";
 import { formatDistanceMeters } from "@/lib/geo";
+import { restaurantPhotoSrc } from "@/lib/photoUrl";
 import {
   LABEL_BADGE_CLASS,
   LABEL_TEXT,
@@ -41,6 +45,71 @@ function ScoreRing({
   );
 }
 
+function PhotoThumb({
+  restaurant,
+}: {
+  restaurant: Restaurant;
+}) {
+  const src = restaurantPhotoSrc(restaurant.photo_url);
+  const [failed, setFailed] = useState(false);
+  const showPhoto = Boolean(src) && !failed;
+  const attribution = restaurant.photo_attributions?.[0] ?? null;
+  const initial = restaurant.name.trim().charAt(0) || "";
+
+  return (
+    <div className="relative h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-2xl bg-mist shadow-soft sm:h-[5.25rem] sm:w-[5.25rem]">
+      {showPhoto ? (
+        <img
+          src={src!}
+          alt=""
+          width={84}
+          height={84}
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <div
+          className="flex h-full w-full flex-col items-center justify-center gap-1 text-white"
+          style={{
+            background:
+              "linear-gradient(145deg, rgba(34,197,94,0.92), rgba(99,102,241,0.88))",
+          }}
+          aria-hidden
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="h-6 w-6 opacity-95 sm:h-7 sm:w-7"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            strokeLinecap="round"
+          >
+            <path d="M8 3v10a2 2 0 0 0 4 0V3" />
+            <path d="M10 3v18" />
+            <path d="M16 8v13" />
+            <path d="M14 8h4" />
+          </svg>
+          {initial ? (
+            <span className="text-[10px] font-semibold tracking-wide text-white/80">
+              {initial}
+            </span>
+          ) : null}
+        </div>
+      )}
+      {showPhoto && attribution ? (
+        <span
+          className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-black/45 px-1 py-0.5 text-[8px] font-medium text-white"
+          title={attribution}
+        >
+          {attribution}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 export function RestaurantCard({
   restaurant,
   selected = false,
@@ -73,7 +142,6 @@ export function RestaurantCard({
       : null;
 
   const categoryShort = restaurant.category?.split(">").pop()?.trim() ?? null;
-  const initial = restaurant.name.trim().charAt(0) || "?";
 
   return (
     <article
@@ -95,16 +163,7 @@ export function RestaurantCard({
       } ${onSelect ? "cursor-pointer" : ""}`}
     >
       <div className="flex gap-3 sm:gap-4">
-        <div
-          className="flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-2xl text-xl font-bold text-white shadow-soft sm:h-[5.25rem] sm:w-[5.25rem] sm:text-2xl"
-          style={{
-            background:
-              "linear-gradient(145deg, rgba(34,197,94,0.95), rgba(99,102,241,0.85))",
-          }}
-          aria-hidden
-        >
-          {initial}
-        </div>
+        <PhotoThumb restaurant={restaurant} />
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">

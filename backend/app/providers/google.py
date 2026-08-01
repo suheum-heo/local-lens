@@ -4,11 +4,12 @@ Endpoints:
   POST https://places.googleapis.com/v1/places:searchText
   GET  https://places.googleapis.com/v1/places/{place_id}
 
-Text Search field mask (matching + scoring; no reviews):
+Text Search field mask (matching + scoring + one photo resource; no reviews):
   places.id,places.displayName,places.formattedAddress,
-  places.location,places.rating,places.userRatingCount
+  places.location,places.rating,places.userRatingCount,places.photos
 
 Place Details is only used when Text Search omitted rating or userRatingCount.
+Photos are requested on Details only when the cached place still lacks a photo.
 Reviews are not requested — LocalLens scoring uses rating + review count only.
 """
 
@@ -23,13 +24,15 @@ from app.config import settings
 from app.domain.models import GooglePlaceData
 from app.providers.base import GooglePlacesProvider
 from app.providers.errors import ApiCallCounter, ProviderAPIError, ProviderConfigError
+from app.providers.place_photos import extract_first_photo
 
 logger = logging.getLogger(__name__)
 
 SEARCH_TEXT_URL = "https://places.googleapis.com/v1/places:searchText"
 PLACE_DETAILS_URL = "https://places.googleapis.com/v1/places/{place_id}"
 
-# Pro SKU fields used for matching + Local/Global scoring. Avoid '*' masks.
+# Pro SKU fields used for matching + Local/Global scoring + representative photo.
+# Avoid '*' masks.
 SEARCH_FIELD_MASK = ",".join(
     [
         "places.id",
@@ -38,9 +41,10 @@ SEARCH_FIELD_MASK = ",".join(
         "places.location",
         "places.rating",
         "places.userRatingCount",
+        "places.photos",
     ]
 )
-# Same data for Details (New); no reviews (not required by scoring).
+# Same core data for Details (New); no reviews.
 DETAILS_FIELD_MASK = ",".join(
     [
         "id",
@@ -51,6 +55,7 @@ DETAILS_FIELD_MASK = ",".join(
         "userRatingCount",
     ]
 )
+DETAILS_FIELD_MASK_WITH_PHOTOS = f"{DETAILS_FIELD_MASK},photos"
 
 REQUEST_TIMEOUT_S = 10.0
 LOCATION_BIAS_RADIUS_M = 500.0
@@ -136,10 +141,14 @@ class LiveGooglePlacesProvider(GooglePlacesProvider):
         return list(places)
 
     async def get_place_details(self, google_place_id: str) -> GooglePlaceData | None:
-        if google_place_id in self._details_cache:
-            cached = self._details_cache[google_place_id]
-            if cached is not None and _has_scoring_fields(cached):
-                return cached
+        cached = self._details_cache.get(google_place_id)
+        if cached is not None and _has_scoring_fields(cached):
+            return cached
+
+        need_photos = cached is None or not cached.photo_name
+        field_mask = (
+            DETAILS_FIELD_MASK_WITH_PHOTOS if need_photos else DETAILS_FIELD_MASK
+        )
 
         place_id = google_place_id.removeprefix("places/")
         url = PLACE_DETAILS_URL.format(place_id=place_id)
@@ -149,7 +158,7 @@ class LiveGooglePlacesProvider(GooglePlacesProvider):
             headers={
                 "Content-Type": "application/json",
                 "X-Goog-Api-Key": self._api_key,
-                "X-Goog-FieldMask": DETAILS_FIELD_MASK,
+                "X-Goog-FieldMask": field_mask,
             },
             json_body=None,
             counter_attr="google_details",
@@ -160,6 +169,15 @@ class LiveGooglePlacesProvider(GooglePlacesProvider):
             return None
 
         place = _normalize_place(data, fallback_name="")
+        if place is not None and cached is not None:
+            # Preserve photo metadata from Text Search when Details omit photos.
+            if not place.photo_name and cached.photo_name:
+                place = place.model_copy(
+                    update={
+                        "photo_name": cached.photo_name,
+                        "photo_attributions": list(cached.photo_attributions),
+                    }
+                )
         self._details_cache[google_place_id] = place
         if place is not None and place.google_place_id != google_place_id:
             self._details_cache[place.google_place_id] = place
@@ -315,6 +333,7 @@ def _normalize_place(raw: Any, *, fallback_name: str) -> GooglePlaceData | None:
         name = fallback_name or ""
 
     loc = raw.get("location") or {}
+    photo_name, photo_attributions = extract_first_photo(raw.get("photos"))
     return GooglePlaceData(
         google_place_id=str(place_id).removeprefix("places/"),
         name=str(name),
@@ -324,6 +343,8 @@ def _normalize_place(raw: Any, *, fallback_name: str) -> GooglePlaceData | None:
         rating=_as_float(raw.get("rating")),
         user_rating_count=_as_int(raw.get("userRatingCount")),
         review_metadata=[],
+        photo_name=photo_name,
+        photo_attributions=photo_attributions,
     )
 
 

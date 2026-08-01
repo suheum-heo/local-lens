@@ -16,6 +16,7 @@ from app.providers.base import GooglePlacesProvider, KakaoLocalProvider
 from app.providers.errors import ApiCallCounter
 from app.providers.factory import get_google_provider, get_kakao_provider
 from app.providers.kakao_place_enricher import EnrichmentStats, KakaoPlaceEnricher
+from app.providers.place_photos import build_photo_proxy_url
 from app.scoring.engine import ScoringEngine, SimpleScoringEngine
 
 # Google Text Search is the other major latency driver; bound concurrency
@@ -79,6 +80,12 @@ class SearchOrchestrator:
         for candidate, match in zip(candidates, matches, strict=True):
             scores, label = self._scoring.score(candidate.kakao, match)
             coverage = classify_rating_coverage(candidate.kakao, match)
+            google = match.google if match.matched else None
+            photo_name = google.photo_name if google is not None else None
+            photo_url = build_photo_proxy_url(photo_name) if photo_name else None
+            photo_attributions = (
+                list(google.photo_attributions) if google and photo_name else []
+            )
             restaurants.append(
                 Restaurant(
                     restaurant_id=candidate.restaurant_id,
@@ -89,12 +96,15 @@ class SearchOrchestrator:
                     longitude=candidate.kakao.longitude,
                     category=candidate.kakao.category,
                     kakao=candidate.kakao,
-                    google=match.google if match.matched else None,
+                    google=google,
                     match=match,
                     scores=scores,
                     label=label,
                     rating_coverage=coverage,
                     source_area_ids=candidate.source_area_ids,
+                    photo_name=photo_name,
+                    photo_url=photo_url,
+                    photo_attributions=photo_attributions,
                 )
             )
 

@@ -171,8 +171,10 @@ GOOGLE_BY_KAKAO_ID: dict[str, GooglePlaceData | None] = {
             {"language": "en", "rating": 5, "text": "Great BBQ near the station"},
             {"language": "ko", "rating": 4, "text": "고기가 맛있어요"},
         ],
+        photo_name="places/ChIJhp_samgyeopsal/photos/mock_rep_hp001",
+        photo_attributions=["LocalLens Mock Photographer"],
     ),
-    # both_strong (local favorite leaning)
+    # both_strong (local favorite leaning) — no photo (fallback UI)
     "kakao_hp_002": GooglePlaceData(
         google_place_id="ChIJhp_sangsu_gukbap",
         name="상수 로컬 국밥",
@@ -196,7 +198,7 @@ GOOGLE_BY_KAKAO_ID: dict[str, GooglePlaceData | None] = {
         user_rating_count=2,
         review_metadata=[{"language": "en", "rating": 5, "text": "Amazing"}],
     ),
-    # both_strong
+    # both_strong — with mock photo
     "kakao_gn_001": GooglePlaceData(
         google_place_id="ChIJgn_premium_bbq",
         name="강남 프리미엄 삼겹살",
@@ -206,6 +208,8 @@ GOOGLE_BY_KAKAO_ID: dict[str, GooglePlaceData | None] = {
         rating=4.5,
         user_rating_count=1890,
         review_metadata=[],
+        photo_name="places/ChIJgn_premium_bbq/photos/mock_rep_gn001",
+        photo_attributions=["LocalLens Mock Photographer"],
     ),
     # match_uncertain — deliberately different name/coords so matcher stays low
     "kakao_gn_002": GooglePlaceData(
@@ -229,7 +233,7 @@ GOOGLE_BY_KAKAO_ID: dict[str, GooglePlaceData | None] = {
         user_rating_count=3,
         review_metadata=[],
     ),
-    # both_strong (local city)
+    # both_strong (local city) — with mock photo
     "kakao_ul_001": GooglePlaceData(
         google_place_id="ChIJul_samsan_bbq",
         name="삼산 고깃집",
@@ -239,6 +243,8 @@ GOOGLE_BY_KAKAO_ID: dict[str, GooglePlaceData | None] = {
         rating=4.4,
         user_rating_count=180,
         review_metadata=[],
+        photo_name="places/ChIJul_samsan_bbq/photos/mock_rep_ul001",
+        photo_attributions=[],
     ),
     # google_missing — strong local only
     "kakao_ul_002": None,

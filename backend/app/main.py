@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import search
+from app.api.routes import photos, search
 from app.config import settings
 
 app = FastAPI(
@@ -21,6 +21,7 @@ app.add_middleware(
 )
 
 app.include_router(search.router, prefix="/api", tags=["search"])
+app.include_router(photos.router, prefix="/api", tags=["photos"])
 
 
 @app.get("/health")
