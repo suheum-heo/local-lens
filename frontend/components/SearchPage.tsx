@@ -100,6 +100,10 @@ export function SearchPage() {
   /** Same-id debounce only — must not block picking a different station next. */
   const lastPickedIdRef = useRef<{ id: string; at: number } | null>(null);
   const ignoreBlurPickUntilRef = useRef(0);
+  /** Hangul IME: 1-char queries stay composing; first click only commits IME. */
+  const composingRef = useRef(false);
+  const lastPointerRef = useRef({ x: 0, y: 0, downAt: 0 });
+  const suggestionListRef = useRef<HTMLUListElement | null>(null);
 
   useEffect(() => {
     // Refresh / shared links must not restore a previous search session.
@@ -310,6 +314,44 @@ export function SearchPage() {
     addLocation(item);
   }
 
+  function locationAtClientPoint(
+    x: number,
+    y: number,
+  ): LocationCatalogItem | null {
+    const ul = suggestionListRef.current;
+    if (!ul) return null;
+    const el = document.elementFromPoint(x, y) as HTMLElement | null;
+    const row = el?.closest?.(
+      "[data-location-id]",
+    ) as HTMLElement | null;
+    if (!row || !ul.contains(row)) return null;
+    return locationById(row.getAttribute("data-location-id"));
+  }
+
+  // While Hangul IME is composing (common after typing just 1 syllable), the
+  // browser spends the first click committing composition — often retargeted
+  // to the input — so the suggestion button never sees pointerdown.
+  // Capture the click coordinates and select the row under the cursor instead.
+  useEffect(() => {
+    const onPointerDown = (e: PointerEvent) => {
+      lastPointerRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+        downAt: Date.now(),
+      };
+      if (!composingRef.current) return;
+      const item = locationAtClientPoint(e.clientX, e.clientY);
+      if (!item) return;
+      e.preventDefault();
+      e.stopPropagation();
+      addLocationRef.current(item);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+    };
+  }, []);
+
   function removeLocation(id: string) {
     setSelected((prev) => prev.filter((s) => s.id !== id));
   }
@@ -519,11 +561,26 @@ export function SearchPage() {
           autoComplete="off"
           autoCorrect="off"
           spellCheck={false}
+          onCompositionStart={() => {
+            composingRef.current = true;
+          }}
           onCompositionEnd={() => {
-            // Unique exact-ish match after IME commit (e.g. 지행 → 지행역).
-            // Do not auto-pick when multiple rows match — that caused wrong stations.
+            composingRef.current = false;
+            // Click-to-confirm IME: pointerdown may have been retargeted to the
+            // input, so recover the row under the recent click coordinates.
+            // Keyboard-only commits (no recent pointerdown) must not auto-pick
+            // a hovered row when many matches exist (1-char queries).
             window.requestAnimationFrame(() => {
               if (Date.now() < ignoreBlurPickUntilRef.current) return;
+              const { x, y, downAt } = lastPointerRef.current;
+              if (Date.now() - downAt < 500) {
+                const under = locationAtClientPoint(x, y);
+                if (under) {
+                  addLocationRef.current(under);
+                  return;
+                }
+              }
+              // Fully typed unique name (e.g. 지행) → select without a click.
               const choice = resolveBlurSelection();
               if (
                 choice &&
@@ -535,6 +592,32 @@ export function SearchPage() {
                 addLocationRef.current(choice);
               }
             });
+          }}
+          onPointerDown={(e) => {
+            // IME often retargets the first tap onto this input while still
+            // composing (1-char case). Select the suggestion under the cursor.
+            lastPointerRef.current = {
+              x: e.clientX,
+              y: e.clientY,
+              downAt: Date.now(),
+            };
+            if (!composingRef.current) return;
+            const under = locationAtClientPoint(e.clientX, e.clientY);
+            if (!under) return;
+            e.preventDefault();
+            addLocation(under);
+          }}
+          onMouseDown={(e) => {
+            lastPointerRef.current = {
+              x: e.clientX,
+              y: e.clientY,
+              downAt: Date.now(),
+            };
+            if (!composingRef.current) return;
+            const under = locationAtClientPoint(e.clientX, e.clientY);
+            if (!under) return;
+            e.preventDefault();
+            addLocation(under);
           }}
           onKeyDown={(e) => {
             if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
@@ -558,12 +641,22 @@ export function SearchPage() {
             window.setTimeout(() => {
               if (Date.now() < ignoreBlurPickUntilRef.current) return;
               if (document.activeElement === filterInputRef.current) return;
+              // Prefer the row under the pointer (1-char + click-away path).
+              const { x, y, downAt } = lastPointerRef.current;
+              if (Date.now() - downAt < 500) {
+                const under = locationAtClientPoint(x, y);
+                if (under) {
+                  addLocationRef.current(under);
+                  return;
+                }
+              }
               const choice = resolveBlurSelection();
               if (choice) addLocationRef.current(choice);
             }, 0);
           }}
         />
         <ul
+          ref={suggestionListRef}
           className="mt-2 max-h-56 overflow-auto rounded-2xl bg-white ring-1 ring-line"
           role="listbox"
           aria-label={`${modeLabel} 검색 결과`}
