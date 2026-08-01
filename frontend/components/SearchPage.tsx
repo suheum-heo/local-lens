@@ -837,32 +837,26 @@ export function SearchPage() {
     <div className="min-h-screen lg:flex">
       <aside className="border-b border-line/80 bg-card/80 backdrop-blur-sm lg:sticky lg:top-0 lg:h-screen lg:w-[22rem] lg:shrink-0 lg:overflow-y-auto lg:border-b-0 lg:border-r xl:w-[24rem]">
         <div className="px-5 py-7 sm:px-6 sm:py-8">
-          <div className="flex items-center gap-2.5">
-            <span
-              className="flex h-9 w-9 items-center justify-center rounded-2xl bg-brand-gradient text-sm font-bold text-white shadow-glow"
-              aria-hidden
-            >
-              L
-            </span>
-            <div>
-              <p className="font-display text-base font-bold tracking-tight text-ink">
-                LocalLens
-              </p>
-              <p className="text-[11px] font-medium text-mute">
-                Local × Global
-              </p>
+          <header>
+            <div className="flex items-center gap-3">
+              <span
+                className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-gradient text-base font-bold text-white shadow-glow"
+                aria-hidden
+              >
+                L
+              </span>
+              <div>
+                <h1 className="font-display text-2xl font-bold tracking-tight text-ink sm:text-[1.75rem]">
+                  LocalLens
+                </h1>
+                <p className="mt-0.5 text-sm font-medium text-brand-dark">
+                  두 시선이 만나는 진짜 맛집
+                </p>
+              </div>
             </div>
-          </div>
-
-          <header className="mt-7">
-            <h1 className="font-display text-[1.75rem] font-semibold leading-snug tracking-tight text-ink text-balance sm:text-[2rem]">
-              두 시선이 만나는
-              <br />
-              진짜 맛집을 찾다.
-            </h1>
-            <p className="mt-3 text-sm leading-relaxed text-mute">
-              Kakao와 Google 데이터를 함께 비교해 더 신뢰할 수 있는 맛집을
-              찾습니다.
+            <p className="mt-5 text-sm leading-relaxed text-mute">
+              Kakao(로컬)와 Google(글로벌) 시선으로 함께 비교해, 더 믿을 수
+              있는 맛집을 고릅니다.
             </p>
           </header>
 

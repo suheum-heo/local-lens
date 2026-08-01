@@ -1,6 +1,6 @@
 # LocalLens
 
-Discover restaurants in South Korea by combining **Kakao** (local) and **Google** (global) signals.
+**두 시선이 만나는 진짜 맛집** — Discover restaurants in South Korea by combining **Kakao** (local) and **Google** (global) signals.
 
 - **Local popularity** — Kakao-oriented signals used heavily by Korean users  
 - **Global popularity** — Google Maps ratings / reviews (travelers + international users)  
