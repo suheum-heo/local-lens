@@ -61,10 +61,13 @@ const base = {
 } as Restaurant;
 
 assert.equal(kakaoMapUrl(base), "https://place.map.kakao.com/83301316");
-assert.equal(
-  googleMapUrl(base),
-  "https://www.google.com/maps/place/?q=place_id:ChIJ_test",
-);
+{
+  const url = new URL(googleMapUrl(base));
+  assert.equal(url.origin + url.pathname, "https://www.google.com/maps/search/");
+  assert.equal(url.searchParams.get("api"), "1");
+  assert.equal(url.searchParams.get("query_place_id"), "ChIJ_test");
+  assert.ok((url.searchParams.get("query") || "").includes("크레이지카츠"));
+}
 
 const unmatched = {
   ...base,

@@ -50,7 +50,8 @@ const CITY_LABEL: Record<string, string> = Object.fromEntries(
 
 const PAGE_SIZE = 10;
 /** Cap markers so iOS Safari does not OOM on large live result sets. */
-const MAP_MARKER_LIMIT = 60;
+const MAP_MARKER_LIMIT_DESKTOP = 60;
+const MAP_MARKER_LIMIT_MOBILE = 24;
 
 /** Run action on mousedown so a focused text field/IME cannot eat the first tap. */
 function pressProps(action: () => void) {
@@ -124,8 +125,12 @@ export function SearchPage() {
     const mq = window.matchMedia("(min-width: 1024px)");
     const sync = () => setIsDesktopLayout(mq.matches);
     sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", sync);
+      return () => mq.removeEventListener("change", sync);
+    }
+    mq.addListener(sync);
+    return () => mq.removeListener(sync);
   }, []);
 
   // Reset selection when city/mode changes; load base catalog.
@@ -250,18 +255,22 @@ export function SearchPage() {
     return result.results.filter((r) => r.rating_coverage === coverageFilter);
   }, [result, coverageFilter]);
 
+  const mapMarkerLimit = isDesktopLayout
+    ? MAP_MARKER_LIMIT_DESKTOP
+    : MAP_MARKER_LIMIT_MOBILE;
+
   const mapRestaurants = useMemo(() => {
     if (!selectedRestaurantId) {
-      return filteredResults.slice(0, MAP_MARKER_LIMIT);
+      return filteredResults.slice(0, mapMarkerLimit);
     }
-    const selected = filteredResults.find(
+    const selectedRow = filteredResults.find(
       (r) => r.restaurant_id === selectedRestaurantId,
     );
     const rest = filteredResults
       .filter((r) => r.restaurant_id !== selectedRestaurantId)
-      .slice(0, MAP_MARKER_LIMIT - (selected ? 1 : 0));
-    return selected ? [selected, ...rest] : rest;
-  }, [filteredResults, selectedRestaurantId]);
+      .slice(0, mapMarkerLimit - (selectedRow ? 1 : 0));
+    return selectedRow ? [selectedRow, ...rest] : rest;
+  }, [filteredResults, selectedRestaurantId, mapMarkerLimit]);
 
   /** Mount map only when visible — hidden Leaflet containers crash iOS Safari. */
   const showResultsMap = isDesktopLayout || mobilePane === "map";
@@ -581,18 +590,36 @@ export function SearchPage() {
         <label className={LABEL} htmlFor="ll-city">
           지역
         </label>
-        <select
-          id="ll-city"
-          className={`mt-2 ${FIELD} appearance-none`}
-          value={city}
-          onChange={(e) => setCity(e.target.value as City)}
-        >
-          {CITIES.map((c) => (
-            <option key={c.value} value={c.value}>
-              {c.label}
-            </option>
-          ))}
-        </select>
+        <div className="relative mt-2">
+          <select
+            id="ll-city"
+            className={`${FIELD} appearance-none pr-11`}
+            value={city}
+            onChange={(e) => setCity(e.target.value as City)}
+          >
+            {CITIES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <span
+            className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-ink/55"
+            aria-hidden
+          >
+            <svg
+              viewBox="0 0 20 20"
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M5 7.5 10 12.5 15 7.5" />
+            </svg>
+          </span>
+        </div>
       </div>
 
       <div>
@@ -911,6 +938,8 @@ export function SearchPage() {
             {selected.length > 0 && mapAreas.length > 0 ? (
               <div className="mt-8 h-56 w-full max-w-xl sm:h-72">
                 <ResultsMapClient
+                  active
+                  lite={!isDesktopLayout}
                   areas={mapAreas}
                   restaurants={[]}
                   selectedRestaurantId={null}
@@ -1078,7 +1107,9 @@ export function SearchPage() {
                 <div className="h-[22rem] sm:h-[28rem] lg:h-[min(72vh,42rem)]">
                   {mapAreas.length > 0 && showResultsMap ? (
                     <ResultsMapClient
-                      key={`results-map-${mobilePane}-${isDesktopLayout ? "lg" : "sm"}`}
+                      key={`results-map-${isDesktopLayout ? "lg" : "sm"}`}
+                      active={showResultsMap}
+                      lite={!isDesktopLayout}
                       areas={mapAreas}
                       restaurants={mapRestaurants}
                       selectedRestaurantId={selectedRestaurantId}
@@ -1098,9 +1129,9 @@ export function SearchPage() {
                   )}
                 </div>
                 {showResultsMap &&
-                filteredResults.length > MAP_MARKER_LIMIT ? (
+                filteredResults.length > mapMarkerLimit ? (
                   <p className="mt-2 text-center text-xs text-mute lg:text-left">
-                    지도에는 상위 {MAP_MARKER_LIMIT}곳만 표시해요
+                    지도에는 상위 {mapMarkerLimit}곳만 표시해요
                   </p>
                 ) : null}
               </div>
