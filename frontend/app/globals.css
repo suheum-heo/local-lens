@@ -11,7 +11,47 @@
 body {
   @apply bg-paper font-body text-ink antialiased;
   background-image:
-    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(47, 107, 79, 0.08), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(196, 92, 38, 0.06), transparent);
+    radial-gradient(ellipse 70% 45% at 15% -5%, rgba(47, 107, 79, 0.1), transparent 55%),
+    radial-gradient(ellipse 50% 35% at 95% 0%, rgba(20, 24, 22, 0.03), transparent 50%);
   min-height: 100vh;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Leaflet polish */
+.leaflet-container {
+  font: inherit;
+  background: #eef1ef;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(20, 24, 22, 0.12);
+  border: 1px solid rgba(20, 24, 22, 0.06);
+  padding: 2px 4px;
+}
+
+.leaflet-popup-content {
+  margin: 10px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.leaflet-popup-tip {
+  box-shadow: none;
+}
+
+.ll-map-shell .leaflet-control-zoom a {
+  border: none !important;
+  color: #141816 !important;
+  border-radius: 10px !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  margin-bottom: 4px;
+  box-shadow: 0 4px 14px rgba(20, 24, 22, 0.1);
 }

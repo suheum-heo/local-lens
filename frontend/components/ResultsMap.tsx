@@ -19,33 +19,46 @@ interface ResultsMapProps {
   restaurants: Restaurant[];
   selectedRestaurantId: string | null;
   onSelectRestaurant: (restaurantId: string) => void;
+  className?: string;
 }
 
-function areaIcon(active: boolean) {
+function areaIcon() {
   return L.divIcon({
     className: "ll-area-marker",
     html: `<span style="
-      display:block;width:12px;height:12px;border-radius:9999px;
-      background:${active ? "#2f6b4f" : "#1a1f1c"};
-      border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35);
+      display:block;width:10px;height:10px;border-radius:9999px;
+      background:#2f6b4f;border:2px solid #fff;
+      box-shadow:0 2px 8px rgba(20,24,22,.25);
     "></span>`,
-    iconSize: [12, 12],
-    iconAnchor: [6, 6],
+    iconSize: [10, 10],
+    iconAnchor: [5, 5],
   });
 }
 
 function restaurantIcon(selected: boolean) {
-  const bg = selected ? "#c45c26" : "#2f6b4f";
-  const size = selected ? 18 : 14;
+  if (selected) {
+    return L.divIcon({
+      className: "ll-restaurant-marker",
+      html: `<span style="
+        display:flex;align-items:center;justify-content:center;
+        width:28px;height:28px;border-radius:9999px;
+        background:#2f6b4f;border:3px solid #fff;
+        box-shadow:0 4px 16px rgba(47,107,79,.45);
+        transform:translateY(-2px);
+      "><span style="width:8px;height:8px;border-radius:9999px;background:#fff;"></span></span>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
+    });
+  }
   return L.divIcon({
     className: "ll-restaurant-marker",
     html: `<span style="
-      display:block;width:${size}px;height:${size}px;border-radius:9999px;
-      background:${bg};border:2px solid #fff;
-      box-shadow:0 1px 4px rgba(0,0,0,.4);
+      display:block;width:14px;height:14px;border-radius:9999px;
+      background:#2f6b4f;border:2px solid #fff;
+      box-shadow:0 2px 8px rgba(20,24,22,.28);opacity:.9;
     "></span>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
   });
 }
 
@@ -68,12 +81,14 @@ function FitAndFocus({
       ),
     ];
     if (points.length === 0) return;
+    // Container may still be settling after layout; invalidate before fitting.
+    map.invalidateSize();
     if (points.length === 1) {
       map.setView(points[0], 15);
       return;
     }
     const bounds = L.latLngBounds(points);
-    map.fitBounds(bounds.pad(0.2));
+    map.fitBounds(bounds.pad(0.18));
   }, [map, areas, restaurants]);
 
   useEffect(() => {
@@ -81,7 +96,7 @@ function FitAndFocus({
     const r = restaurants.find((x) => x.restaurant_id === selectedRestaurantId);
     if (!r) return;
     map.flyTo([r.latitude, r.longitude], Math.max(map.getZoom(), 16), {
-      duration: 0.45,
+      duration: 0.5,
     });
   }, [map, restaurants, selectedRestaurantId]);
 
@@ -93,6 +108,7 @@ export function ResultsMap({
   restaurants,
   selectedRestaurantId,
   onSelectRestaurant,
+  className,
 }: ResultsMapProps) {
   const center = useMemo<[number, number]>(() => {
     if (areas.length > 0) {
@@ -105,7 +121,9 @@ export function ResultsMap({
   }, [areas, restaurants]);
 
   return (
-    <div className="h-64 w-full overflow-hidden border border-ink/10 sm:h-80">
+    <div
+      className={`ll-map-shell h-full w-full overflow-hidden rounded-card border border-ink/[0.06] bg-mist shadow-soft ${className ?? ""}`}
+    >
       <MapContainer
         center={center}
         zoom={14}
@@ -114,7 +132,7 @@ export function ResultsMap({
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
         <FitAndFocus
           areas={areas}
@@ -129,8 +147,8 @@ export function ResultsMap({
             pathOptions={{
               color: "#2f6b4f",
               fillColor: "#2f6b4f",
-              fillOpacity: 0.08,
-              weight: 1.5,
+              fillOpacity: 0.06,
+              weight: 1.25,
             }}
           />
         ))}
@@ -138,14 +156,17 @@ export function ResultsMap({
           <Marker
             key={`area-${area.id}`}
             position={[area.latitude, area.longitude]}
-            icon={areaIcon(true)}
+            icon={areaIcon()}
           >
             <Popup>
-              <span className="text-sm font-medium">{area.name}</span>
-              <br />
-              <span className="text-xs text-ink/60">
-                반경 {(area.radius_m / 1000).toFixed(area.radius_m % 1000 === 0 ? 0 : 1)} km
-              </span>
+              <div className="font-semibold text-ink">{area.name}</div>
+              <div className="mt-0.5 text-xs text-ink/50">
+                반경{" "}
+                {(area.radius_m / 1000).toFixed(
+                  area.radius_m % 1000 === 0 ? 0 : 1,
+                )}{" "}
+                km
+              </div>
             </Popup>
           </Marker>
         ))}
@@ -164,7 +185,7 @@ export function ResultsMap({
               <Popup>
                 <button
                   type="button"
-                  className="text-left text-sm font-medium text-ink"
+                  className="text-left font-semibold text-ink hover:text-leaf"
                   onClick={() => onSelectRestaurant(r.restaurant_id)}
                 >
                   {r.name}

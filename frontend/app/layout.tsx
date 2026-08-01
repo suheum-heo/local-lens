@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "LocalLens — Local × Global restaurant discovery",
+  title: "LocalLens — 한국인도, 외국인도 좋아하는 맛집",
   description:
-    "Discover restaurants in South Korea with Kakao local signals and Google global reviews.",
+    "Kakao와 Google 데이터를 함께 비교해 더 신뢰할 수 있는 맛집을 찾습니다.",
 };
 
 export default function RootLayout({

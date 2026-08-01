@@ -1,5 +1,6 @@
 import { googleMapUrl, kakaoMapUrl } from "@/lib/mapLinks";
-import type { RatingCoverage, Restaurant, RestaurantLabel } from "@/lib/types";
+import { formatDistanceMeters } from "@/lib/geo";
+import type { Restaurant, RestaurantLabel } from "@/lib/types";
 
 const LABEL_KO: Record<RestaurantLabel, string> = {
   consensus_pick: "Consensus Pick",
@@ -8,100 +9,50 @@ const LABEL_KO: Record<RestaurantLabel, string> = {
   limited_data: "Limited Data",
 };
 
-const COVERAGE_KO: Record<RatingCoverage, string> = {
-  both: "양쪽 평점",
-  kakao_only: "카카오만",
-  google_only: "구글만",
-  none: "평점 없음",
+const LABEL_STYLE: Record<RestaurantLabel, string> = {
+  consensus_pick: "bg-leaf text-white",
+  local_favorite: "bg-leaf/10 text-leaf",
+  global_favorite: "bg-ink/90 text-white",
+  limited_data: "bg-mist text-ink/60",
 };
 
-function ScoreCell({
-  title,
-  score,
-  explanation,
-}: {
-  title: string;
-  score: number | null;
-  explanation: string | null;
-}) {
-  return (
-    <div className="min-w-0">
-      <div className="text-xs uppercase tracking-wide text-ink/50">{title}</div>
-      <div className="mt-0.5 font-semibold tabular-nums text-ink">
-        {score != null ? score : "—"}
-      </div>
-      {score == null && explanation ? (
-        <p className="mt-1 text-xs leading-snug text-ink/55">{explanation}</p>
-      ) : null}
-    </div>
-  );
-}
-
-function PlatformBlock({
-  title,
+function RatingPill({
+  label,
   rating,
-  reviewCount,
-  availability,
-  explanation,
-  emptyLabel,
-  mapHref,
-  mapLabel,
+  count,
+  empty,
 }: {
-  title: string;
+  label: string;
   rating: number | null;
-  reviewCount: number | null;
-  availability: string;
-  explanation: string | null;
-  emptyLabel: string;
-  mapHref: string;
-  mapLabel: string;
+  count: number | null;
+  empty: string;
 }) {
-  // Show raw platform rating whenever present — even if score is insufficient.
-  const showRating = rating != null;
-
-  return (
-    <div>
-      <div className="flex items-baseline justify-between gap-2">
-        <div className="text-xs font-medium text-ink/50">{title}</div>
-        <a
-          href={mapHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-          className="shrink-0 text-xs font-medium text-leaf underline-offset-2 hover:underline"
-        >
-          {mapLabel}
-        </a>
+  if (rating == null) {
+    return (
+      <div className="min-w-0 rounded-xl bg-mist/70 px-3 py-2.5">
+        <div className="text-[11px] font-medium uppercase tracking-wide text-ink/40">
+          {label}
+        </div>
+        <div className="mt-0.5 text-sm text-ink/45">{empty}</div>
       </div>
-      {showRating ? (
-        <p className="mt-0.5 text-sm text-ink">
-          <span className="font-semibold">{rating!.toFixed(1)}</span>
-          <span className="text-ink/70"> ★</span>
-          {reviewCount != null ? (
-            <span className="text-ink/55">
-              {" "}
-              · {reviewCount.toLocaleString()} reviews
-            </span>
-          ) : null}
-        </p>
-      ) : (
-        <p className="mt-0.5 text-sm text-ink/60">
-          {availability === "insufficient_data"
-            ? "데이터 부족"
-            : availability === "unmatched"
-              ? "매칭 없음"
-              : emptyLabel}
-        </p>
-      )}
-      {!showRating && explanation ? (
-        <p className="mt-1 text-xs leading-snug text-ink/50">{explanation}</p>
-      ) : null}
-      {showRating &&
-      availability !== "available" &&
-      explanation ? (
-        <p className="mt-1 text-xs leading-snug text-ink/50">{explanation}</p>
-      ) : null}
+    );
+  }
+  return (
+    <div className="min-w-0 rounded-xl bg-mist/70 px-3 py-2.5">
+      <div className="text-[11px] font-medium uppercase tracking-wide text-ink/40">
+        {label}
+      </div>
+      <div className="mt-0.5 flex items-baseline gap-1.5">
+        <span className="text-lg font-semibold tabular-nums tracking-tight text-ink">
+          {rating.toFixed(1)}
+        </span>
+        <span className="text-xs text-ink/40">★</span>
+        {count != null ? (
+          <span className="text-xs tabular-nums text-ink/40">
+            {count.toLocaleString()}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -110,12 +61,29 @@ export function RestaurantCard({
   restaurant,
   selected = false,
   onSelect,
+  distanceM = null,
 }: {
   restaurant: Restaurant;
   selected?: boolean;
   onSelect?: (restaurantId: string) => void;
+  distanceM?: number | null;
 }) {
-  const { scores, kakao, google, label, match, rating_coverage } = restaurant;
+  const { scores, kakao, google, label, match } = restaurant;
+  const googleRating = scores.global.rating ?? google?.rating ?? null;
+  const googleCount =
+    scores.global.review_count ?? google?.user_rating_count ?? null;
+  const kakaoRating = scores.local.rating ?? kakao.rating;
+  const kakaoCount = scores.local.review_count ?? kakao.review_count;
+  const recommendation = scores.consensus.score ?? scores.local.score ?? scores.global.score;
+
+  const unmatched = !match.matched;
+  const statusBadge = label
+    ? { text: LABEL_KO[label], className: LABEL_STYLE[label] }
+    : unmatched
+      ? { text: "Google Unmatched", className: "bg-mist text-ink/55" }
+      : null;
+
+  const categoryShort = restaurant.category?.split(">").pop()?.trim() ?? null;
 
   return (
     <article
@@ -130,85 +98,101 @@ export function RestaurantCard({
           onSelect(restaurant.restaurant_id);
         }
       }}
-      className={`border-b border-ink/10 py-5 last:border-b-0 outline-none transition ${
-        selected ? "bg-leaf/5 ring-1 ring-inset ring-leaf/30" : ""
-      } ${onSelect ? "cursor-pointer hover:bg-mist/40" : ""}`}
+      className={`group rounded-card border bg-card p-4 shadow-soft outline-none transition duration-200 ease-soft sm:p-5 ${
+        selected
+          ? "border-leaf/30 ring-2 ring-leaf/20 shadow-lift"
+          : "border-ink/[0.06] hover:-translate-y-0.5 hover:border-ink/10 hover:shadow-lift"
+      } ${onSelect ? "cursor-pointer" : ""}`}
     >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h3 className="text-lg font-semibold tracking-tight text-ink">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate text-lg font-semibold tracking-tight text-ink sm:text-xl">
             {restaurant.name}
           </h3>
-          {restaurant.road_address || restaurant.address ? (
-            <p className="mt-0.5 text-sm text-ink/55">
-              {restaurant.road_address || restaurant.address}
-            </p>
-          ) : null}
-          {restaurant.category ? (
-            <p className="mt-0.5 text-xs text-ink/40">{restaurant.category}</p>
-          ) : null}
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink/45">
+            {distanceM != null ? (
+              <span className="font-medium tabular-nums text-ink/55">
+                {formatDistanceMeters(distanceM)}
+              </span>
+            ) : null}
+            {distanceM != null && categoryShort ? (
+              <span className="text-ink/20">·</span>
+            ) : null}
+            {categoryShort ? <span>{categoryShort}</span> : null}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="rounded-sm bg-mist px-2 py-1 text-xs font-medium text-ink/70">
-            {COVERAGE_KO[rating_coverage]}
+        {statusBadge ? (
+          <span
+            className={`shrink-0 rounded-chip px-2.5 py-1 text-[11px] font-semibold tracking-wide ${statusBadge.className}`}
+          >
+            {statusBadge.text}
           </span>
-          {label ? (
-            <span className="rounded-sm bg-leaf/10 px-2 py-1 text-xs font-medium text-leaf">
-              {LABEL_KO[label]}
-            </span>
-          ) : null}
+        ) : null}
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <RatingPill
+          label="Google"
+          rating={googleRating}
+          count={googleCount}
+          empty={
+            scores.global.availability === "unmatched"
+              ? "매칭 없음"
+              : "데이터 없음"
+          }
+        />
+        <RatingPill
+          label="Kakao"
+          rating={kakaoRating}
+          count={kakaoCount}
+          empty={
+            scores.local.availability === "insufficient_data"
+              ? "리뷰 부족"
+              : "보강 불가"
+          }
+        />
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <div className="text-[11px] font-medium uppercase tracking-wide text-ink/35">
+            Recommendation
+          </div>
+          <div className="mt-0.5 text-2xl font-semibold tabular-nums tracking-tight text-ink">
+            {recommendation != null ? recommendation.toFixed(1) : "—"}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <a
+            href={googleMapUrl(restaurant)}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="rounded-chip border border-ink/10 bg-white px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-ink/20 hover:bg-mist/60 hover:text-ink"
+          >
+            Google
+          </a>
+          <a
+            href={kakaoMapUrl(restaurant)}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="rounded-chip border border-ink/10 bg-white px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-ink/20 hover:bg-mist/60 hover:text-ink"
+          >
+            Kakao
+          </a>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect?.(restaurant.restaurant_id);
+            }}
+            className="rounded-chip bg-leaf/10 px-3 py-1.5 text-xs font-semibold text-leaf transition hover:bg-leaf/15"
+          >
+            Map
+          </button>
         </div>
       </div>
-
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <PlatformBlock
-          title="Kakao"
-          rating={scores.local.rating ?? kakao.rating}
-          reviewCount={scores.local.review_count ?? kakao.review_count}
-          availability={scores.local.availability}
-          explanation={scores.local.explanation}
-          emptyLabel="보강 불가"
-          mapHref={kakaoMapUrl(restaurant)}
-          mapLabel="카카오맵"
-        />
-        <PlatformBlock
-          title="Google"
-          rating={scores.global.rating ?? google?.rating ?? null}
-          reviewCount={
-            scores.global.review_count ?? google?.user_rating_count ?? null
-          }
-          availability={scores.global.availability}
-          explanation={scores.global.explanation}
-          emptyLabel="데이터 없음"
-          mapHref={googleMapUrl(restaurant)}
-          mapLabel="구글맵"
-        />
-      </div>
-
-      <div className="mt-4 grid grid-cols-3 gap-3 rounded-sm bg-mist/60 p-3">
-        <ScoreCell title="Local" score={scores.local.score} explanation={null} />
-        <ScoreCell
-          title="Global"
-          score={scores.global.score}
-          explanation={
-            scores.global.score == null ? scores.global.explanation : null
-          }
-        />
-        <ScoreCell
-          title="Consensus"
-          score={scores.consensus.score}
-          explanation={
-            scores.consensus.score == null ? scores.consensus.explanation : null
-          }
-        />
-      </div>
-
-      <p className="mt-3 text-xs text-ink/40">
-        Match confidence:{" "}
-        {match.matched
-          ? `${match.confidence_level} (${match.confidence.toFixed(2)})`
-          : `unmatched${match.reason ? ` — ${match.reason}` : ""}`}
-      </p>
     </article>
   );
 }
