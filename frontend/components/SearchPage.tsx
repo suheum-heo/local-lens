@@ -92,6 +92,11 @@ export function SearchPage() {
   const filteredRef = useRef<LocationCatalogItem[]>([]);
   const filterValueRef = useRef("");
   const addLocationRef = useRef<(item: LocationCatalogItem) => void>(() => {});
+  const composingRef = useRef(false);
+  const lastPointerRef = useRef({ x: 0, y: 0 });
+  const pickLockRef = useRef(false);
+  const ignoreBlurPickUntilRef = useRef(0);
+  const imePointerDownRef = useRef(false);
 
   useEffect(() => {
     // Refresh / shared links must not restore a previous search session.
@@ -230,45 +235,42 @@ export function SearchPage() {
 
   /** Add from the suggestion list (idempotent). Deselect only via chip ×. */
   const addLocation = useCallback((item: LocationCatalogItem) => {
+    if (pickLockRef.current) return;
+    pickLockRef.current = true;
+    ignoreBlurPickUntilRef.current = Date.now() + 500;
+
     setSelected((prev) => {
       if (prev.some((s) => s.id === item.id)) return prev;
       return [...prev, item];
     });
-    setFilter("");
-    filterInputRef.current?.blur();
+
+    // Defer clearing the filter so the list does not reshuffle under the
+    // still-active pointer/IME gesture (that was making search-picks need 2 taps).
+    window.setTimeout(() => {
+      setFilter("");
+      filterInputRef.current?.blur();
+      pickLockRef.current = false;
+    }, 100);
   }, []);
 
   useEffect(() => {
     addLocationRef.current = addLocation;
   }, [addLocation]);
 
-  // Capture-phase listener: select BEFORE the filter input blurs / IME focus loss.
-  // React onClick/onMouseDown on the button is too late when a text field is focused.
-  useEffect(() => {
-    const pickFromEvent = (e: Event) => {
-      const ul = suggestionListRef.current;
-      if (!ul) return;
-      const el = (e.target as HTMLElement | null)?.closest?.(
-        "[data-location-id]",
-      ) as HTMLElement | null;
-      if (!el || !ul.contains(el)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const id = el.getAttribute("data-location-id");
-      if (!id) return;
-      const item = filteredRef.current.find((x) => x.id === id);
-      if (item) addLocationRef.current(item);
-    };
-    document.addEventListener("pointerdown", pickFromEvent, true);
-    document.addEventListener("mousedown", pickFromEvent, true);
-    return () => {
-      document.removeEventListener("pointerdown", pickFromEvent, true);
-      document.removeEventListener("mousedown", pickFromEvent, true);
-    };
-  }, []);
-
-  function removeLocation(id: string) {
-    setSelected((prev) => prev.filter((s) => s.id !== id));
+  function locationAtClientPoint(
+    x: number,
+    y: number,
+  ): LocationCatalogItem | null {
+    const ul = suggestionListRef.current;
+    if (!ul) return null;
+    const el = document.elementFromPoint(x, y) as HTMLElement | null;
+    const row = el?.closest?.(
+      "[data-location-id]",
+    ) as HTMLElement | null;
+    if (!row || !ul.contains(row)) return null;
+    const id = row.getAttribute("data-location-id");
+    if (!id) return null;
+    return filteredRef.current.find((item) => item.id === id) ?? null;
   }
 
   function resolveBlurSelection(): LocationCatalogItem | null {
@@ -284,6 +286,87 @@ export function SearchPage() {
     if (exact) return exact;
     if (items.length === 1) return items[0];
     return null;
+  }
+
+  /** Recover selection when IME swallows the click and only compositionend fires. */
+  function recoverImeSuggestionPick() {
+    if (pickLockRef.current) return;
+    const { x, y } = lastPointerRef.current;
+    const under = locationAtClientPoint(x, y);
+    if (under) {
+      addLocationRef.current(under);
+      return;
+    }
+    const ul = suggestionListRef.current;
+    if (!ul) return;
+    const rect = ul.getBoundingClientRect();
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      return;
+    }
+    const choice = resolveBlurSelection() ?? filteredRef.current[0] ?? null;
+    if (choice) addLocationRef.current(choice);
+  }
+
+  // Capture-phase listener: select by click coordinates, not event.target.
+  // During Korean IME composition the browser may drop/retarget the click so
+  // target is wrong — clientX/Y still point at the hovered suggestion.
+  useEffect(() => {
+    let handledByPointerDown = false;
+
+    const trackPointer = (e: PointerEvent) => {
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+    };
+
+    const pickFromCoords = (e: Event) => {
+      const ul = suggestionListRef.current;
+      if (!ul || pickLockRef.current) return;
+      const pe = e as PointerEvent | MouseEvent;
+      if (!("clientX" in pe)) return;
+      lastPointerRef.current = { x: pe.clientX, y: pe.clientY };
+      if (composingRef.current) imePointerDownRef.current = true;
+
+      const under = locationAtClientPoint(pe.clientX, pe.clientY);
+      const fromTarget = (() => {
+        const el = (e.target as HTMLElement | null)?.closest?.(
+          "[data-location-id]",
+        ) as HTMLElement | null;
+        if (!el || !ul.contains(el)) return null;
+        const id = el.getAttribute("data-location-id");
+        return filteredRef.current.find((x) => x.id === id) ?? null;
+      })();
+      const item = under || fromTarget;
+      if (!item) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      addLocationRef.current(item);
+    };
+
+    const onPointerDown = (e: Event) => {
+      handledByPointerDown = true;
+      pickFromCoords(e);
+    };
+    const onMouseDown = (e: Event) => {
+      // Safari / IME paths may skip PointerEvent; avoid double-handling.
+      if (handledByPointerDown) {
+        handledByPointerDown = false;
+        return;
+      }
+      pickFromCoords(e);
+    };
+
+    document.addEventListener("pointermove", trackPointer, true);
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("mousedown", onMouseDown, true);
+    return () => {
+      document.removeEventListener("pointermove", trackPointer, true);
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("mousedown", onMouseDown, true);
+    };
+  }, []);
+
+  function removeLocation(id: string) {
+    setSelected((prev) => prev.filter((s) => s.id !== id));
   }
 
   const runSearch = useCallback(async () => {
@@ -487,6 +570,42 @@ export function SearchPage() {
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
+            onCompositionStart={() => {
+              composingRef.current = true;
+              imePointerDownRef.current = false;
+            }}
+            onCompositionEnd={() => {
+              composingRef.current = false;
+              // Hangul IME often spends the first click only confirming composition
+              // so the row never receives the event. Recover via pointer position,
+              // or auto-pick when the typed query has exactly one match (지행 등).
+              const hadPointer = imePointerDownRef.current;
+              imePointerDownRef.current = false;
+              requestAnimationFrame(() => {
+                if (hadPointer) {
+                  recoverImeSuggestionPick();
+                  return;
+                }
+                const { x, y } = lastPointerRef.current;
+                const under = locationAtClientPoint(x, y);
+                if (under) {
+                  const unique = resolveBlurSelection();
+                  if (
+                    unique?.id === under.id ||
+                    filteredRef.current.length === 1
+                  ) {
+                    addLocationRef.current(under);
+                    return;
+                  }
+                }
+                if (
+                  filteredRef.current.length === 1 &&
+                  filterValueRef.current.trim().length >= 2
+                ) {
+                  addLocationRef.current(filteredRef.current[0]);
+                }
+              });
+            }}
             onKeyDown={(e) => {
               if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
               e.preventDefault();
@@ -494,6 +613,7 @@ export function SearchPage() {
               if (first) addLocation(first);
             }}
             onBlur={(e) => {
+              if (Date.now() < ignoreBlurPickUntilRef.current) return;
               const related = e.relatedTarget as HTMLElement | null;
               const viaOption = related?.closest?.(
                 "[data-location-id]",
@@ -504,10 +624,15 @@ export function SearchPage() {
                 if (item) addLocation(item);
                 return;
               }
-              // IME often eats the first outside click (composition ends, click
-              // never arrives). Defer so we still pick a unique/exact match.
               window.setTimeout(() => {
+                if (Date.now() < ignoreBlurPickUntilRef.current) return;
                 if (document.activeElement === filterInputRef.current) return;
+                const { x, y } = lastPointerRef.current;
+                const under = locationAtClientPoint(x, y);
+                if (under) {
+                  addLocationRef.current(under);
+                  return;
+                }
                 const choice = resolveBlurSelection();
                 if (choice) addLocationRef.current(choice);
               }, 0);
