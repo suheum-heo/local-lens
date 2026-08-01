@@ -122,6 +122,11 @@ npm run build
 
 ## Deploy (Vercel + Render, Live)
 
+Production URLs:
+
+- Frontend: https://local-lens-kohl.vercel.app
+- Backend: https://local-lens-api-o601.onrender.com (`GET /health` → `provider_mode: live`)
+
 Production layout:
 
 - **Frontend** — [Vercel](https://vercel.com), project root directory `frontend/`
