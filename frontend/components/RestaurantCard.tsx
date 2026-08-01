@@ -132,16 +132,6 @@ export function RestaurantCard({
 
       <div className="mt-4 grid grid-cols-2 gap-2">
         <RatingPill
-          label="Google"
-          rating={googleRating}
-          count={googleCount}
-          empty={
-            scores.global.availability === "unmatched"
-              ? "매칭 없음"
-              : "데이터 없음"
-          }
-        />
-        <RatingPill
           label="Kakao"
           rating={kakaoRating}
           count={kakaoCount}
@@ -149,6 +139,16 @@ export function RestaurantCard({
             scores.local.availability === "insufficient_data"
               ? "리뷰 부족"
               : "보강 불가"
+          }
+        />
+        <RatingPill
+          label="Google"
+          rating={googleRating}
+          count={googleCount}
+          empty={
+            scores.global.availability === "unmatched"
+              ? "매칭 없음"
+              : "데이터 없음"
           }
         />
       </div>
@@ -164,15 +164,6 @@ export function RestaurantCard({
         </div>
         <div className="flex flex-wrap gap-1.5">
           <a
-            href={googleMapUrl(restaurant)}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="rounded-chip border border-ink/10 bg-white px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-ink/20 hover:bg-mist/60 hover:text-ink"
-          >
-            Google
-          </a>
-          <a
             href={kakaoMapUrl(restaurant)}
             target="_blank"
             rel="noopener noreferrer"
@@ -180,6 +171,15 @@ export function RestaurantCard({
             className="rounded-chip border border-ink/10 bg-white px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-ink/20 hover:bg-mist/60 hover:text-ink"
           >
             Kakao
+          </a>
+          <a
+            href={googleMapUrl(restaurant)}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="rounded-chip border border-ink/10 bg-white px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-ink/20 hover:bg-mist/60 hover:text-ink"
+          >
+            Google
           </a>
           <button
             type="button"
