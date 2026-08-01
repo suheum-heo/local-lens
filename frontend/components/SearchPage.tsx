@@ -59,7 +59,6 @@ export function SearchPage() {
   const [catalogLoading, setCatalogLoading] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
   const filterDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const keepSelectionOnCityChange = useRef(false);
 
   useEffect(() => {
     // Refresh / shared links must not restore a previous search session.
@@ -69,16 +68,14 @@ export function SearchPage() {
   }, []);
 
   // Reset selection when city/mode changes; load base catalog.
+  // Selection keeps its own city — never sync city from a chip click (that used
+  // to clear selection under React Strict Mode's double effect invoke).
   useEffect(() => {
     let cancelled = false;
-    const keepSelection = keepSelectionOnCityChange.current;
-    keepSelectionOnCityChange.current = false;
-    if (!keepSelection) {
-      setSelected([]);
-      setResult(null);
-      setSelectedRestaurantId(null);
-      setFilter("");
-    }
+    setSelected([]);
+    setResult(null);
+    setSelectedRestaurantId(null);
+    setFilter("");
     setError(null);
     setCatalogLoading(true);
 
@@ -193,11 +190,6 @@ export function SearchPage() {
       }
       return [...prev, item];
     });
-    if (item.city && item.city !== city) {
-      keepSelectionOnCityChange.current = true;
-      setCity(item.city);
-    }
-    setFilter("");
   }
 
   function removeLocation(id: string) {

@@ -46,7 +46,9 @@ Billing uses Places API (New) SKUs (Text Search / Place Details). Legacy Find Pl
 
 **Does not supply:** star ratings or review counts. Discovery ≠ Kakao rating availability. Ratings come from a separate unofficial enrichment step (below).
 
-**Pagination:** up to **3 pages × 15** results per `SearchArea` (≤ 45). Stops early when `meta.is_end` is true.
+**Pagination:** up to **3 pages × 15** results per origin (≤ 45). Stops early when `meta.is_end` is true.
+
+**Broad food queries** (`맛집` / empty → default): Kakao’s ~45 pageable ceiling hides restaurants that are inside the radius but not among the nearest pack. LocalLens fans out the same keyword search across a tight cardinal grid (~200–280 m steps; a second ring for ≥1.2 km), merges by Kakao place id, and keeps only places within the original radius. Specific cuisine/name queries still use a single origin.
 
 ### Kakao Map place-detail enrichment (unofficial)
 

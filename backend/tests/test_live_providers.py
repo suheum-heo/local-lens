@@ -103,11 +103,43 @@ async def test_live_kakao_parses_and_paginates():
         counter=counter,
         max_pages=3,
     )
-    results = await provider.search_restaurants(_area(), "맛집")
+    # Specific cuisine/name → single origin (no broad-query grid).
+    results = await provider.search_restaurants(_area(), "한식")
     assert {r.kakao_place_id for r in results} == {"1", "2", "3"}
     assert all(r.rating is None and r.review_count is None for r in results)
     assert counter.kakao_keyword == 2
     assert calls["n"] == 2
+
+
+@pytest.mark.asyncio
+async def test_live_kakao_broad_query_uses_multi_origin_grid():
+    origins: set[tuple[str, str]] = set()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        x = request.url.params.get("x", "")
+        y = request.url.params.get("y", "")
+        origins.add((x, y))
+        # Distinct id per origin so merge is observable.
+        oid = f"{x}:{y}"
+        doc = {
+            **SAMPLE_DOC,
+            "id": oid,
+            "x": x,
+            "y": y,
+        }
+        return _kakao_page([doc], is_end=True)
+
+    counter = ApiCallCounter()
+    provider = LiveKakaoLocalProvider(
+        api_key="test-kakao-key",
+        transport=httpx.MockTransport(handler),
+        counter=counter,
+        max_pages=1,
+    )
+    results = await provider.search_restaurants(_area(), "맛집")
+    assert len(origins) == 5  # center + 4 cardinals for 1km
+    assert len(results) == 5
+    assert counter.kakao_keyword == 5
 
 
 @pytest.mark.asyncio
