@@ -62,8 +62,8 @@ export function SearchPage() {
   const queryInputRef = useRef<HTMLInputElement | null>(null);
   const filterDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedRef = useRef<LocationCatalogItem[]>([]);
-  const pressLockRef = useRef(false);
   const searchingRef = useRef(false);
+  const filteredRef = useRef<LocationCatalogItem[]>([]);
 
   useEffect(() => {
     // Refresh / shared links must not restore a previous search session.
@@ -192,29 +192,18 @@ export function SearchPage() {
     selectedRef.current = selected;
   }, [selected]);
 
-  function toggleLocation(item: LocationCatalogItem) {
+  useEffect(() => {
+    filteredRef.current = filtered;
+  }, [filtered]);
+
+  /** Add from the suggestion list (idempotent). Deselect only via chip ×. */
+  function addLocation(item: LocationCatalogItem) {
     setSelected((prev) => {
-      if (prev.some((s) => s.id === item.id)) {
-        return prev.filter((s) => s.id !== item.id);
-      }
+      if (prev.some((s) => s.id === item.id)) return prev;
       return [...prev, item];
     });
-  }
-
-  /** Select/deselect from the suggestion list in one gesture (no second tap). */
-  function pressLocation(item: LocationCatalogItem) {
-    if (pressLockRef.current) return;
-    pressLockRef.current = true;
-
-    toggleLocation(item);
-    // Blur immediately so IME/keyboard dismiss is part of this same gesture.
-    // Clear the filter only after the click sequence finishes — clearing too
-    // early reshuffles the list under the cursor and can steal mouseup/click.
+    setFilter("");
     filterInputRef.current?.blur();
-    window.setTimeout(() => {
-      setFilter("");
-      pressLockRef.current = false;
-    }, 400);
   }
 
   function removeLocation(id: string) {
@@ -412,7 +401,16 @@ export function SearchPage() {
               if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
               e.preventDefault();
               const first = filtered[0];
-              if (first) pressLocation(first);
+              if (first) addLocation(first);
+            }}
+            onBlur={(e) => {
+              // If the user left the field by pressing a suggestion, select it
+              // even when IME/focus quirks swallow the button click.
+              const target = e.relatedTarget as HTMLElement | null;
+              const id = target?.getAttribute?.("data-location-id");
+              if (!id) return;
+              const item = filteredRef.current.find((x) => x.id === id);
+              if (item) addLocation(item);
             }}
           />
           <p className="mt-1.5 text-xs text-ink/45">
@@ -438,22 +436,16 @@ export function SearchPage() {
                     <button
                       type="button"
                       data-location-id={item.id}
-                      // preventDefault on early pointer/mouse events keeps the
-                      // filter input from stealing the first tap (IME / keyboard
-                      // dismiss). pressLock prevents pointerdown+click double toggle.
-                      onPointerDown={(e) => {
-                        if (e.button !== 0) return;
-                        e.preventDefault();
-                        pressLocation(item);
-                      }}
+                      // Classic combobox: block input blur on mousedown, select on click.
+                      // addLocation is idempotent so duplicate events cannot undo selection.
                       onMouseDown={(e) => {
                         if (e.button !== 0) return;
                         e.preventDefault();
-                        pressLocation(item);
+                        addLocation(item);
                       }}
                       onClick={(e) => {
                         e.preventDefault();
-                        pressLocation(item);
+                        addLocation(item);
                       }}
                       className={`flex w-full cursor-pointer touch-manipulation items-center justify-between px-3 py-2 text-left text-sm hover:bg-mist/80 ${
                         active ? "bg-leaf/10 text-leaf" : "text-ink"

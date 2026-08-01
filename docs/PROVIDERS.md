@@ -63,7 +63,7 @@ Official Local APIs do not expose map reviews. After keyword discovery + dedupe,
 **Behavior:**
 
 - Soft-fail per place (timeout / 404 / parse miss) → leave rating missing; never invent zeros
-- Request-scoped cache by place id; concurrency ≤ 12; enrich at most **40** unique places per search
+- Request-scoped cache by place id; concurrency ≤ 16; enrich at most **80** unique places per search
 - Runs **in parallel** with Google matching (ratings are not required for matching)
 - Skipped entirely when `PROVIDER_MODE=mock` (fixtures already include ratings)
 - Counted as `api_calls.kakao_place_detail`
@@ -122,7 +122,7 @@ POST /api/search
   → Kakao keyword search              # once per SearchArea page
   → normalize_and_dedupe              # by kakao_place_id
   → KakaoPlaceEnricher ∥ PlaceMatcher # parallel (live enrich + Google match)
-       → review-tab ratings           # unofficial; ≤ 40 places, concurrency 12
+       → review-tab ratings           # unofficial; ≤ 80 places, concurrency 16
        → Places Text Search (New)    # ≤ 1 per unique place (cached; concurrency 8)
        → Places Details (New)         # only if rating/count missing after search
   → ScoringEngine
