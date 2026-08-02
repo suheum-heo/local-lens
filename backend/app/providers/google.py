@@ -85,7 +85,7 @@ class LiveGooglePlacesProvider(GooglePlacesProvider):
         self._transport = transport
         self._counter = counter
         self._search_cache: dict[
-            tuple[str, float, float, str], list[GooglePlaceData]
+            tuple[str, float, float, str, str], list[GooglePlaceData]
         ] = {}
         self._details_cache: dict[str, GooglePlaceData | None] = {}
         # Reused across concurrent match calls within one search request.
@@ -97,12 +97,16 @@ class LiveGooglePlacesProvider(GooglePlacesProvider):
         latitude: float,
         longitude: float,
         address: str | None = None,
+        *,
+        included_type: str = "restaurant",
     ) -> list[GooglePlaceData]:
+        place_type = (included_type or "restaurant").strip() or "restaurant"
         cache_key = (
             name.strip(),
             round(latitude, 5),
             round(longitude, 5),
             (address or "").strip(),
+            place_type,
         )
         if cache_key in self._search_cache:
             return list(self._search_cache[cache_key])
@@ -118,7 +122,7 @@ class LiveGooglePlacesProvider(GooglePlacesProvider):
             "textQuery": text_query,
             "languageCode": "ko",
             "regionCode": "KR",
-            "includedType": "restaurant",
+            "includedType": place_type,
             "pageSize": MAX_SEARCH_RESULTS,
             "locationBias": {
                 "circle": {

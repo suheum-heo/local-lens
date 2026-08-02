@@ -16,7 +16,10 @@ export async function fetchLocations(
   options?: { nationwide?: boolean; q?: string },
 ): Promise<LocationCatalogItem[]> {
   const params = new URLSearchParams({ mode });
-  if (mode === "station" && options?.nationwide !== false) {
+  if (
+    (mode === "station" || mode === "street") &&
+    options?.nationwide !== false
+  ) {
     params.set("nationwide", "true");
   } else {
     params.set("city", city);
@@ -70,6 +73,17 @@ export function toLocationPayload(
       type: "bus_stop",
       bus_stop_id: item.id,
       bus_stop_name: item.name,
+      city: item.city,
+      latitude: item.latitude,
+      longitude: item.longitude,
+      radius_m: radiusM,
+    };
+  }
+  if (item.mode === "street") {
+    return {
+      type: "street",
+      street_id: item.id,
+      street_name: item.name,
       city: item.city,
       latitude: item.latitude,
       longitude: item.longitude,

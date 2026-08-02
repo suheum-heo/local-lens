@@ -146,7 +146,7 @@ export function SearchPage() {
     setCatalogLoading(true);
 
     fetchLocations(city, mode, {
-      nationwide: mode === "station",
+      nationwide: mode === "station" || mode === "street",
     })
       .then((items) => {
         if (!cancelled) setCatalog(items);
@@ -165,7 +165,7 @@ export function SearchPage() {
 
   // Bus / dong: live lookup as the user types (debounced).
   useEffect(() => {
-    if (mode === "station") return;
+    if (mode === "station" || mode === "street") return;
     const q = filter.trim();
     let cancelled = false;
     if (filterDebounce.current) clearTimeout(filterDebounce.current);
@@ -192,10 +192,10 @@ export function SearchPage() {
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (mode === "station") {
+    if (mode === "station" || mode === "street") {
       if (!q) {
-        // Full city catalog (Seoul ~465). Truncating hid 합정/홍대 등 so users
-        // had to type + fight IME for those stations.
+        // Full city catalog. Truncating hid popular pins so users had to
+        // type + fight IME for those names.
         return catalog.filter((item) => item.city === city);
       }
       const matched = catalog.filter(
@@ -203,8 +203,7 @@ export function SearchPage() {
           item.name.toLowerCase().includes(q) ||
           (item.name_en?.toLowerCase().includes(q) ?? false),
       );
-      // Prefer exact / prefix matches so "압구정" surfaces 압구정역 before
-      // 압구정로데오역, and short typed queries feel one-click reliable.
+      // Prefer exact / prefix matches so short typed queries feel reliable.
       const rank = (item: LocationCatalogItem) => {
         const name = item.name.toLowerCase();
         const bare = name.replace(/역$/, "");
@@ -323,6 +322,15 @@ export function SearchPage() {
       if (prev.some((s) => s.id === item.id)) return prev;
       return [...prev, item];
     });
+    // Famous streets ship a tighter default pin radius than stations.
+    if (
+      item.mode === "street" &&
+      SEARCH_RADIUS_OPTIONS_M.includes(
+        item.default_radius_m as StationRadiusM,
+      )
+    ) {
+      setRadiusM(item.default_radius_m as StationRadiusM);
+    }
     setFilter("");
   }, []);
 

@@ -1,0 +1,245 @@
+[
+  {
+    "id": "st_garosu",
+    "name": "가로수길",
+    "name_en": "Garosu-gil",
+    "city": "seoul",
+    "latitude": 37.5209,
+    "longitude": 127.0228,
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_haebangchon",
+    "name": "해방촌",
+    "name_en": "Haebangchon",
+    "city": "seoul",
+    "latitude": 37.5392,
+    "longitude": 126.9876,
+    "default_radius_m": 500
+  },
+  {
+    "id": "st_gyeongnidan",
+    "name": "경리단길",
+    "name_en": "Gyeongnidan-gil",
+    "city": "seoul",
+    "latitude": 37.5405,
+    "longitude": 126.9918,
+    "default_radius_m": 500
+  },
+  {
+    "id": "st_ikseon",
+    "name": "익선동",
+    "name_en": "Ikseon-dong",
+    "city": "seoul",
+    "latitude": 37.5742,
+    "longitude": 126.9898,
+    "default_radius_m": 500
+  },
+  {
+    "id": "st_yeonnam",
+    "name": "연남동",
+    "name_en": "Yeonnam-dong",
+    "city": "seoul",
+    "latitude": 37.5662,
+    "longitude": 126.9254,
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_mangwon",
+    "name": "망리단길",
+    "name_en": "Mangridan-gil",
+    "city": "seoul",
+    "latitude": 37.5565,
+    "longitude": 126.9055,
+    "default_radius_m": 500
+  },
+  {
+    "id": "st_seongsu",
+    "name": "성수동",
+    "name_en": "Seongsu-dong",
+    "city": "seoul",
+    "latitude": 37.5446,
+    "longitude": 127.0557,
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_euljiro",
+    "name": "을지로",
+    "name_en": "Euljiro",
+    "city": "seoul",
+    "latitude": 37.5662,
+    "longitude": 126.991,
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_sharosu",
+    "name": "샤로수길",
+    "name_en": "Sharosu-gil",
+    "city": "seoul",
+    "latitude": 37.4795,
+    "longitude": 126.9528,
+    "default_radius_m": 500
+  },
+  {
+    "id": "st_samcheong",
+    "name": "삼청동",
+    "name_en": "Samcheong-dong",
+    "city": "seoul",
+    "latitude": 37.5845,
+    "longitude": 126.9819,
+    "default_radius_m": 500
+  },
+  {
+    "id": "st_itaewon",
+    "name": "이태원",
+    "name_en": "Itaewon",
+    "city": "seoul",
+    "latitude": 37.5345,
+    "longitude": 126.9946,
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_hannam",
+    "name": "한남동",
+    "name_en": "Hannam-dong",
+    "city": "seoul",
+    "latitude": 37.5346,
+    "longitude": 127.0094,
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_bukchon",
+    "name": "북촌",
+    "name_en": "Bukchon",
+    "city": "seoul",
+    "latitude": 37.5826,
+    "longitude": 126.9831,
+    "default_radius_m": 500
+  },
+  {
+    "id": "st_yeontral",
+    "name": "연트럴파크",
+    "name_en": "Yeontral Park",
+    "city": "seoul",
+    "latitude": 37.5682,
+    "longitude": 126.921,
+    "default_radius_m": 500
+  },
+  {
+    "id": "st_jeonpo",
+    "name": "전포카페거리",
+    "name_en": "Jeonpo Cafe Street",
+    "city": "busan",
+    "latitude": 35.155,
+    "longitude": 129.0645,
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_gwangalli",
+    "name": "광안리",
+    "name_en": "Gwangalli",
+    "city": "busan",
+    "latitude": 35.1532,
+    "longitude": 129.1186,
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_dalmaji",
+    "name": "달맞이길",
+    "name_en": "Dalmaji-gil",
+    "city": "busan",
+    "latitude": 35.1615,
+    "longitude": 129.1785,
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_huinnyeoul",
+    "name": "흰여울문화마을",
+    "name_en": "Huinnyeoul Culture Village",
+    "city": "busan",
+    "latitude": 35.0788,
+    "longitude": 129.0178,
+    "default_radius_m": 500
+  },
+  {
+    "id": "st_dongseong",
+    "name": "동성로",
+    "name_en": "Dongseong-ro",
+    "city": "daegu",
+    "latitude": 35.8691,
+    "longitude": 128.5952,
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_songdo",
+    "name": "송도센트럴파크",
+    "name_en": "Songdo Central Park",
+    "city": "incheon",
+    "latitude": 37.3926,
+    "longitude": 126.6397,
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_incheon_chinatown",
+    "name": "차이나타운",
+    "name_en": "Chinatown",
+    "city": "incheon",
+    "latitude": 37.4756,
+    "longitude": 126.618,
+    "default_radius_m": 500
+  },
+  {
+    "id": "st_chungjang",
+    "name": "충장로",
+    "name_en": "Chungjang-ro",
+    "city": "gwangju",
+    "latitude": 35.1496,
+    "longitude": 126.9156,
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_eunhaeng",
+    "name": "은행동",
+    "name_en": "Eunhaeng-dong",
+    "city": "daejeon",
+    "latitude": 36.3286,
+    "longitude": 127.4272,
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_gaekridan",
+    "name": "객리단길",
+    "name_en": "Gaekridan-gil",
+    "city": "jeonju",
+    "latitude": 35.8158,
+    "longitude": 127.1488,
+    "default_radius_m": 500
+  },
+  {
+    "id": "st_jeonju_hanok",
+    "name": "전주한옥마을",
+    "name_en": "Jeonju Hanok Village",
+    "city": "jeonju",
+    "latitude": 35.815,
+    "longitude": 127.153,
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_seongnam_ulsan",
+    "name": "성남동",
+    "name_en": "Seongnam-dong",
+    "city": "ulsan",
+    "latitude": 35.5562,
+    "longitude": 129.3202,
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_hwangnidan",
+    "name": "황리단길",
+    "name_en": "Hwangnidan-gil",
+    "city": "gyeongju",
+    "latitude": 35.8376,
+    "longitude": 129.2112,
+    "default_radius_m": 1000
+  }
+]

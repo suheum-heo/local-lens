@@ -28,6 +28,7 @@ const CITY_SET = new Set<string>([
   "daejeon",
   "ulsan",
   "jeonju",
+  "gyeongju",
   "other",
 ]);
 
@@ -42,7 +43,12 @@ export function parseSearchParams(
   }
 
   const mode = params.get("mode");
-  if (mode === "station" || mode === "bus_stop" || mode === "neighborhood") {
+  if (
+    mode === "station" ||
+    mode === "bus_stop" ||
+    mode === "neighborhood" ||
+    mode === "street"
+  ) {
     out.mode = mode;
   }
 
@@ -85,7 +91,7 @@ export function buildSearchParams(state: {
   if (state.locationIds.length > 0) {
     params.set("locs", state.locationIds.join(","));
   }
-  if (state.mode === "station") {
+  if (state.mode === "station" || state.mode === "street") {
     params.set("radius", String(state.radiusM || DEFAULT_RADIUS_M));
   }
   if (state.query.trim()) {

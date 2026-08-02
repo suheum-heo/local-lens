@@ -6,8 +6,8 @@ import httpx
 import pytest
 
 from app.domain.enums import City, LocationMode
-from app.domain.locations import BusStopLocation, SearchArea
-from app.providers.location_catalog import catalog_for_city
+from app.domain.locations import BusStopLocation, SearchArea, StreetLocation
+from app.providers.location_catalog import catalog_for_city, load_streets
 from app.providers.location_search import search_bus_stops, search_neighborhoods
 
 
@@ -38,6 +38,33 @@ def test_neighborhood_seed_catalog_has_multiple_cities():
     cities = {n.city for n in all_nb}
     assert City.SEOUL in cities
     assert City.JEONJU in cities
+
+
+def test_street_location_to_search_area():
+    area = SearchArea.from_location(
+        StreetLocation(
+            street_id="st_garosu",
+            street_name="가로수길",
+            city=City.SEOUL,
+            latitude=37.5209,
+            longitude=127.0228,
+            radius_m=1000,
+        )
+    )
+    assert area.source_mode == LocationMode.STREET
+    assert area.label == "가로수길"
+
+
+def test_street_catalog_includes_famous_areas():
+    streets = load_streets()
+    names = {s.name for s in streets}
+    assert "가로수길" in names
+    assert "해방촌" in names
+    assert "황리단길" in names
+    assert any(s.city == City.GYEONGJU for s in streets)
+    seoul = catalog_for_city(City.SEOUL, LocationMode.STREET)
+    assert all(s.mode == LocationMode.STREET for s in seoul)
+    assert any(s.name == "가로수길" for s in seoul)
 
 
 @pytest.mark.asyncio

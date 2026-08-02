@@ -2,7 +2,7 @@
 
 SearchArea is the common abstraction used by restaurant search so that
 downstream logic does not care whether locations came from subway stations,
-bus stops, or neighborhoods.
+bus stops, neighborhoods, or famous streets.
 """
 
 from __future__ import annotations
@@ -84,8 +84,29 @@ class NeighborhoodLocation(BaseModel):
         return v
 
 
+class StreetLocation(BaseModel):
+    """Famous street / shopping-district search anchor."""
+
+    type: Literal["street"] = "street"
+    street_id: str
+    street_name: str
+    city: City
+    latitude: float
+    longitude: float
+    radius_m: int = DEFAULT_SEARCH_RADIUS_M
+
+    @field_validator("radius_m")
+    @classmethod
+    def radius_allowed(cls, v: int) -> int:
+        if v not in SEARCH_RADIUS_OPTIONS_M:
+            raise ValueError(
+                f"radius_m must be one of {list(SEARCH_RADIUS_OPTIONS_M)}"
+            )
+        return v
+
+
 LocationInput = Annotated[
-    Union[StationLocation, BusStopLocation, NeighborhoodLocation],
+    Union[StationLocation, BusStopLocation, NeighborhoodLocation, StreetLocation],
     Field(discriminator="type"),
 ]
 
@@ -108,7 +129,10 @@ class SearchArea(BaseModel):
     @classmethod
     def from_location(
         cls,
-        loc: StationLocation | BusStopLocation | NeighborhoodLocation,
+        loc: StationLocation
+        | BusStopLocation
+        | NeighborhoodLocation
+        | StreetLocation,
     ) -> SearchArea:
         if isinstance(loc, StationLocation):
             return cls(
@@ -129,6 +153,16 @@ class SearchArea(BaseModel):
                 radius_m=loc.radius_m,
                 source_mode=LocationMode.BUS_STOP,
                 source_id=loc.bus_stop_id,
+            )
+        if isinstance(loc, StreetLocation):
+            return cls(
+                label=loc.street_name,
+                city=loc.city,
+                latitude=loc.latitude,
+                longitude=loc.longitude,
+                radius_m=loc.radius_m,
+                source_mode=LocationMode.STREET,
+                source_id=loc.street_id,
             )
         return cls(
             label=loc.neighborhood_name,

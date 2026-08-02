@@ -29,7 +29,7 @@ from app.domain.contracts import DEFAULT_FOOD_QUERY
 from app.domain.locations import SearchArea
 from app.domain.models import KakaoPlaceData
 from app.providers.base import KakaoLocalProvider
-from app.providers.cuisine_queries import expand_food_queries
+from app.providers.cuisine_queries import expand_food_queries, kakao_category_group
 from app.providers.errors import ApiCallCounter, ProviderAPIError, ProviderConfigError
 
 logger = logging.getLogger(__name__)
@@ -85,6 +85,8 @@ class LiveKakaoLocalProvider(KakaoLocalProvider):
         )
         cell_radius = _cell_radius_m(radius, origin_count=len(origins))
         queries = expand_food_queries(query)
+        # Cafe intent → CE7; everything else stays FD6 (음식점).
+        category_group = kakao_category_group(query)
 
         async with httpx.AsyncClient(
             timeout=REQUEST_TIMEOUT_S,
@@ -99,6 +101,7 @@ class LiveKakaoLocalProvider(KakaoLocalProvider):
                         latitude=lat,
                         longitude=lon,
                         radius_m=cell_radius,
+                        category_group_code=category_group,
                     )
                     for q in queries
                     for lat, lon in origins
@@ -130,6 +133,7 @@ class LiveKakaoLocalProvider(KakaoLocalProvider):
         latitude: float,
         longitude: float,
         radius_m: int,
+        category_group_code: str = "FD6",
     ) -> list[KakaoPlaceData]:
         collected: dict[str, KakaoPlaceData] = {}
 
@@ -146,7 +150,7 @@ class LiveKakaoLocalProvider(KakaoLocalProvider):
                 "x": str(longitude),
                 "y": str(latitude),
                 "radius": str(radius_m),
-                "category_group_code": "FD6",  # food
+                "category_group_code": category_group_code,
                 "size": PAGE_SIZE,
                 "page": page,
                 "sort": "distance",

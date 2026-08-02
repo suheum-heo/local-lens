@@ -1,4 +1,4 @@
-"""Location catalog: nationwide stations (JSON) + neighborhood fixtures."""
+"""Location catalog: stations / streets (JSON) + neighborhood fixtures."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from app.domain.enums import City, LocationMode
 
 _DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 _STATIONS_PATH = _DATA_DIR / "stations.json"
+_STREETS_PATH = _DATA_DIR / "streets.json"
 
 # Seed neighborhoods shown before the user types (live Kakao address fills more).
 NEIGHBORHOODS: list[LocationCatalogItem] = [
@@ -156,11 +157,13 @@ BUS_STOP_SEEDS: list[LocationCatalogItem] = [
 ]
 
 
-@lru_cache
-def load_stations() -> tuple[LocationCatalogItem, ...]:
-    if not _STATIONS_PATH.exists():
+def _load_pin_catalog(
+    path: Path,
+    mode: LocationMode,
+) -> tuple[LocationCatalogItem, ...]:
+    if not path.exists():
         return tuple()
-    raw = json.loads(_STATIONS_PATH.read_text(encoding="utf-8"))
+    raw = json.loads(path.read_text(encoding="utf-8"))
     items: list[LocationCatalogItem] = []
     for row in raw:
         try:
@@ -175,11 +178,21 @@ def load_stations() -> tuple[LocationCatalogItem, ...]:
                 city=city,
                 latitude=float(row["latitude"]),
                 longitude=float(row["longitude"]),
-                mode=LocationMode.STATION,
+                mode=mode,
                 default_radius_m=int(row.get("default_radius_m") or 1000),
             )
         )
     return tuple(items)
+
+
+@lru_cache
+def load_stations() -> tuple[LocationCatalogItem, ...]:
+    return _load_pin_catalog(_STATIONS_PATH, LocationMode.STATION)
+
+
+@lru_cache
+def load_streets() -> tuple[LocationCatalogItem, ...]:
+    return _load_pin_catalog(_STREETS_PATH, LocationMode.STREET)
 
 
 def catalog_for_city(
@@ -188,12 +201,18 @@ def catalog_for_city(
     *,
     nationwide: bool = False,
 ) -> list[LocationCatalogItem]:
-    """Return static catalog seeds (stations / fixtures)."""
+    """Return static catalog seeds (stations / streets / fixtures)."""
     if mode == LocationMode.STATION:
         stations = list(load_stations())
         if nationwide or city is None:
             return stations
         return [item for item in stations if item.city == city]
+
+    if mode == LocationMode.STREET:
+        streets = list(load_streets())
+        if nationwide or city is None:
+            return streets
+        return [item for item in streets if item.city == city]
 
     if mode == LocationMode.BUS_STOP:
         seeds = BUS_STOP_SEEDS

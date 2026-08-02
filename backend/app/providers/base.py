@@ -30,11 +30,14 @@ class GooglePlacesProvider(ABC):
         latitude: float,
         longitude: float,
         address: str | None = None,
+        *,
+        included_type: str = "restaurant",
     ) -> list[GooglePlaceData]:
         """Return zero or more Google place candidates near the given query.
 
         Callers (the matcher) must score candidates — do not assume index 0
-        is the correct match.
+        is the correct match. ``included_type`` is a Places (New) type such as
+        ``restaurant`` or ``cafe``.
         """
         raise NotImplementedError
 

@@ -27,7 +27,10 @@ class MockGooglePlacesProvider(GooglePlacesProvider):
         latitude: float,
         longitude: float,
         address: str | None = None,
+        *,
+        included_type: str = "restaurant",
     ) -> list[GooglePlaceData]:
+        del included_type  # mock catalog is type-agnostic
         ranked: list[tuple[float, GooglePlaceData]] = []
 
         for place in ALL_GOOGLE:

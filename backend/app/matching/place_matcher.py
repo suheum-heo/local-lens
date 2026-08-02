@@ -43,6 +43,7 @@ class DefaultPlaceMatcher(PlaceMatcher):
             latitude=kakao.latitude,
             longitude=kakao.longitude,
             address=kakao.road_address or kakao.address,
+            included_type=_google_included_type(kakao),
         )
         if not candidates:
             return PlaceMatchResult(
@@ -87,6 +88,14 @@ class DefaultPlaceMatcher(PlaceMatcher):
             google=google,
             reason=None,
         )
+
+
+def _google_included_type(kakao: KakaoPlaceData) -> str:
+    """Prefer Places type ``cafe`` when Kakao category is a coffee shop."""
+    category = (kakao.category or "").lower()
+    if any(token in category for token in ("카페", "cafe", "커피")):
+        return "cafe"
+    return "restaurant"
 
 
 def confidence_level(confidence: float) -> MatchConfidenceLevel:

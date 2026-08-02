@@ -21,6 +21,7 @@ _MODE_TO_TYPE = {
     LocationMode.STATION: "station",
     LocationMode.BUS_STOP: "bus_stop",
     LocationMode.NEIGHBORHOOD: "neighborhood",
+    LocationMode.STREET: "street",
 }
 
 
@@ -39,16 +40,6 @@ async def search_restaurants(body: SearchRequest) -> SearchResponse:
                     f"'{body.mode.value}'"
                 ),
             )
-        # Station/bus modes allow cross-city picks; neighborhood stays city-scoped
-        # unless the selected dong's city differs after live lookup.
-        if (
-            body.mode == LocationMode.NEIGHBORHOOD
-            and loc.city != body.city
-            and loc.city.value not in {"other"}
-        ):
-            # Allow mismatch after live address remap; only warn via pass-through.
-            pass
-
     try:
         orchestrator = create_search_orchestrator()
         return await orchestrator.search(body)
@@ -73,7 +64,9 @@ async def list_locations(
     ),
     nationwide: bool = Query(
         False,
-        description="When true with mode=station, return the full national catalog.",
+        description=(
+            "When true with mode=station or street, return the full national catalog."
+        ),
     ),
     q: str | None = Query(
         None,
@@ -83,10 +76,20 @@ async def list_locations(
 ) -> list[LocationCatalogItem]:
     query = (q or "").strip()
 
-    if mode == LocationMode.STATION:
+    if mode in {LocationMode.STATION, LocationMode.STREET}:
         if nationwide or city is None:
-            return catalog_for_city(None, mode, nationwide=True)
-        return catalog_for_city(city, mode, nationwide=False)
+            items = catalog_for_city(None, mode, nationwide=True)
+        else:
+            items = catalog_for_city(city, mode, nationwide=False)
+        if query:
+            ql = query.lower()
+            items = [
+                s
+                for s in items
+                if ql in s.name.lower()
+                or (s.name_en and ql in s.name_en.lower())
+            ]
+        return items
 
     if city is None:
         raise HTTPException(

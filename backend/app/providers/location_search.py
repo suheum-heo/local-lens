@@ -26,6 +26,7 @@ CITY_CENTERS: dict[City, tuple[float, float]] = {
     City.DAEJEON: (127.3845, 36.3504),
     City.ULSAN: (129.3114, 35.5384),
     City.JEONJU: (127.1480, 35.8242),
+    City.GYEONGJU: (129.2247, 35.8562),
     City.OTHER: (127.5, 36.5),
 }
 
@@ -39,6 +40,7 @@ CITY_SEARCH_RADIUS_M: dict[City, int] = {
     City.DAEJEON: 20000,
     City.ULSAN: 20000,
     City.JEONJU: 15000,
+    City.GYEONGJU: 15000,
     City.OTHER: 30000,
 }
 
@@ -138,6 +140,7 @@ async def search_neighborhoods(
         City.DAEJEON: "대전",
         City.ULSAN: "울산",
         City.JEONJU: "전주",
+        City.GYEONGJU: "경주",
         City.OTHER: "",
     }.get(city, "")
     search_q = f"{city_prefix} {q}".strip()
@@ -234,6 +237,8 @@ def _city_from_address_name(address: str) -> City:
         return City.ULSAN
     if "전주" in address:
         return City.JEONJU
+    if "경주" in address:
+        return City.GYEONGJU
     if address.startswith(("경기", "세종")):
         return City.SEOUL
     return City.OTHER

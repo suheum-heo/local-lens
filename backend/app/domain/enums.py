@@ -7,6 +7,7 @@ class LocationMode(str, Enum):
     STATION = "station"
     BUS_STOP = "bus_stop"
     NEIGHBORHOOD = "neighborhood"
+    STREET = "street"
 
 
 class DataAvailability(str, Enum):
@@ -50,4 +51,5 @@ class City(str, Enum):
     DAEJEON = "daejeon"
     ULSAN = "ulsan"
     JEONJU = "jeonju"
+    GYEONGJU = "gyeongju"
     OTHER = "other"

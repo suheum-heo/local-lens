@@ -7,9 +7,10 @@ export type City =
   | "daejeon"
   | "ulsan"
   | "jeonju"
+  | "gyeongju"
   | "other";
 
-export type LocationMode = "station" | "bus_stop" | "neighborhood";
+export type LocationMode = "station" | "bus_stop" | "neighborhood" | "street";
 
 export type DataAvailability =
   | "available"
@@ -146,7 +147,18 @@ export interface NeighborhoodLocationPayload {
   radius_m: number;
 }
 
+export interface StreetLocationPayload {
+  type: "street";
+  street_id: string;
+  street_name: string;
+  city: City;
+  latitude: number;
+  longitude: number;
+  radius_m: number;
+}
+
 export type LocationPayload =
   | StationLocationPayload
   | BusStopLocationPayload
-  | NeighborhoodLocationPayload;
+  | NeighborhoodLocationPayload
+  | StreetLocationPayload;
