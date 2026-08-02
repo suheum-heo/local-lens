@@ -1,0 +1,24 @@
+---
+description: Always ship LocalLens changes to production backend AND frontend
+alwaysApply: true
+---
+
+# Always deploy LocalLens to production
+
+After finishing any shippable feature, bug fix, or behavior change in this repo:
+
+1. **Commit** relevant changes (never secrets / `.env`).
+2. **Push** to `origin/main` (or the branch that auto-deploys).
+3. **Backend (Render):** confirm `local-lens-api` redeployed the pushed commit (git push usually triggers it; if not, trigger redeploy). Verify with a live API check when the change touches the API.
+4. **Frontend (Vercel):** always run production deploy from `frontend/`:
+
+   ```bash
+   npx vercel --prod --yes
+   ```
+
+   Do **not** stop at “pushed to GitHub”. Git integration alone has left production UI stale before.
+5. **Verify production**, not just local:
+   - Frontend: https://local-lens-kohl.vercel.app shows the new UI/copy
+   - Backend: https://local-lens-api-o601.onrender.com reflects the new API behavior
+
+This is mandatory for LocalLens — backend and frontend both must reach the **deployed production** version. Do not wait to be asked to deploy.
