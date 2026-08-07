@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
-  type MouseEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import { fetchLocations, searchRestaurants, toLocationPayload } from "@/lib/api";
 import { resolveLocationPick } from "@/lib/locationPick";
@@ -54,10 +54,10 @@ const PAGE_SIZE = 10;
 const MAP_MARKER_LIMIT_DESKTOP = 60;
 const MAP_MARKER_LIMIT_MOBILE = 24;
 
-/** Run action on mousedown so a focused text field/IME cannot eat the first tap. */
+/** Run action on pointerdown so a focused text field/IME cannot eat the first tap. */
 function pressProps(action: () => void) {
   return {
-    onMouseDown: (e: MouseEvent) => {
+    onPointerDown: (e: ReactPointerEvent) => {
       if (e.button !== 0) return;
       e.preventDefault();
       action();
@@ -217,6 +217,10 @@ export function SearchPage() {
         .sort((a, b) => {
           const d = rank(a) - rank(b);
           if (d !== 0) return d;
+          // Same name in multiple cities: prefer the selected city, but never
+          // auto-pick — user still chooses explicitly (see resolveLocationPick).
+          if (a.city === city && b.city !== city) return -1;
+          if (b.city === city && a.city !== city) return 1;
           return a.name.length - b.name.length || a.name.localeCompare(b.name, "ko");
         })
         .slice(0, 120);
@@ -286,23 +290,16 @@ export function SearchPage() {
     setPage(1);
   }, [coverageFilter, result]);
 
-  useEffect(() => {
-    selectedRef.current = selected;
-  }, [selected]);
-
-  useEffect(() => {
-    filteredRef.current = filtered;
-  }, [filtered]);
+  // Keep refs in sync during render so same-tick search after pick sees selection.
+  selectedRef.current = selected;
+  filteredRef.current = filtered;
+  filterValueRef.current = filter;
 
   useEffect(() => {
     const map = new Map<string, LocationCatalogItem>();
     for (const item of catalog) map.set(item.id, item);
     catalogByIdRef.current = map;
   }, [catalog]);
-
-  useEffect(() => {
-    filterValueRef.current = filter;
-  }, [filter]);
 
   function locationById(id: string | null | undefined): LocationCatalogItem | null {
     if (!id) return null;
@@ -321,7 +318,9 @@ export function SearchPage() {
 
     setSelected((prev) => {
       if (prev.some((s) => s.id === item.id)) return prev;
-      return [...prev, item];
+      const next = [...prev, item];
+      selectedRef.current = next;
+      return next;
     });
     // Famous streets ship a tighter default pin radius than stations.
     if (
@@ -332,6 +331,7 @@ export function SearchPage() {
     ) {
       setRadiusM(item.default_radius_m as StationRadiusM);
     }
+    filterValueRef.current = "";
     setFilter("");
   }, []);
 
@@ -478,15 +478,24 @@ export function SearchPage() {
     if (searchingRef.current) return;
     setError(null);
 
+    // Block blur/IME handlers from racing the first mouse press on search.
+    const now = Date.now();
+    ignoreBlurPickUntilRef.current = now + 600;
+    imePickArmUntilRef.current = 0;
+
     // If the user typed a unique station (e.g. 지행) but IME ate the list
     // click, adopt that match so Search still works on the first press.
     let currentSelected = selectedRef.current;
     if (currentSelected.length === 0) {
-      const inferred = resolveBlurSelection();
+      const inferred = resolveLocationPick(
+        filterValueRef.current,
+        filteredRef.current,
+      );
       if (inferred) {
         currentSelected = [inferred];
         selectedRef.current = currentSelected;
         setSelected(currentSelected);
+        filterValueRef.current = "";
         setFilter("");
       }
     }
@@ -495,13 +504,21 @@ export function SearchPage() {
       setError("검색할 위치를 하나 이상 선택하세요.");
       return;
     }
+
+    // Commit Hangul IME in focused fields so the first click is not eaten.
+    const active = document.activeElement as HTMLElement | null;
+    if (
+      active &&
+      (active === filterInputRef.current || active === queryInputRef.current)
+    ) {
+      active.blur();
+    }
+
     searchingRef.current = true;
     setLoading(true);
     setSelectedRestaurantId(null);
     setCoverageFilter("all");
     setPage(1);
-    queryInputRef.current?.blur();
-    filterInputRef.current?.blur();
     try {
       // Use the selected place's city for the API only — do not setCity here.
       // setCity would re-run the city/mode effect and wipe selection + results.
@@ -889,11 +906,21 @@ export function SearchPage() {
 
       <div className="space-y-2 pt-1">
         <button
-          type="submit"
+          type="button"
           disabled={loading}
-          {...pressProps(() => {
+          onPointerDown={(e) => {
+            // pointerdown + preventDefault: Hangul IME must not consume the
+            // first press when focus is still in a text field.
+            if (e.button !== 0 || loading) return;
+            e.preventDefault();
+            e.stopPropagation();
+            void runSearch();
+          }}
+          onClick={(e) => {
+            // Fallback when pointerdown was skipped (keyboard / some a11y paths).
+            e.preventDefault();
             if (!loading) void runSearch();
-          })}
+          }}
           className="inline-flex w-full items-center justify-center rounded-chip bg-brand-gradient px-6 py-3.5 text-sm font-semibold text-white shadow-glow transition duration-200 ease-soft hover:brightness-105 disabled:opacity-55"
         >
           {loading ? "검색 중…" : "맛집 찾기"}

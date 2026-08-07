@@ -46,4 +46,17 @@ assert(
   "unique stem still auto-selects",
 );
 
+const SPORTS = [
+  station("seoul", "종합운동장역", "seoul"),
+  station("busan", "종합운동장역", "busan"),
+];
+assert(
+  resolveLocationPick("종합운동장역", SPORTS) === null,
+  "duplicate station names must not auto-select",
+);
+assert(
+  resolveLocationPick("종합운동장", SPORTS) === null,
+  "duplicate stem names must not auto-select",
+);
+
 console.log("locationPick.selftest: ok");

@@ -1,10 +1,19 @@
 import type { LocationCatalogItem } from "./types";
 
+function isExactNameMatch(item: LocationCatalogItem, q: string): boolean {
+  return (
+    item.name === q ||
+    item.name === `${q}역` ||
+    item.name.toLowerCase() === q.toLowerCase()
+  );
+}
+
 /**
  * Resolve an auto-select candidate from the typed filter.
  *
  * Exact / 「역」-suffix matches are accepted only when the query uniquely
  * finishes that name. Prefixes like 「잠실」 must not steal 「잠실새내」.
+ * Duplicate names across cities (e.g. 종합운동장역) never auto-select.
  */
 export function resolveLocationPick(
   query: string,
@@ -13,15 +22,15 @@ export function resolveLocationPick(
   const q = query.trim();
   if (!q || items.length === 0) return null;
 
-  const exact = items.find(
-    (i) =>
-      i.name === q ||
-      i.name === `${q}역` ||
-      i.name.toLowerCase() === q.toLowerCase(),
-  );
+  const exactMatches = items.filter((i) => isExactNameMatch(i, q));
+  if (exactMatches.length > 1) {
+    // Same station name in multiple cities — user must pick explicitly.
+    return null;
+  }
 
+  const exact = exactMatches[0];
   if (exact) {
-    // Fully typed official name (e.g. 「잠실역」) — always accept.
+    // Fully typed official name (e.g. 「잠실역」).
     if (
       q === exact.name ||
       q.toLowerCase() === exact.name.toLowerCase()
