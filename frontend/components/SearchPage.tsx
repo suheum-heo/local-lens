@@ -386,6 +386,20 @@ export function SearchPage() {
       if (fromTarget && suggestionListRef.current?.contains(fromTarget)) {
         return locationById(fromTarget.getAttribute("data-location-id"));
       }
+
+      const targetIsFilter =
+        t === filterInputRef.current ||
+        !!(t && filterInputRef.current?.contains(t));
+      const inSuggestionList = !!(
+        t && suggestionListRef.current?.contains(t)
+      );
+      // Clicks on submit / radius / other controls must never be rewritten
+      // into a location pick (IME arm + stale cursor used to steal the first
+      // 「맛집 찾기」 mouse press).
+      if (!targetIsFilter && !inSuggestionList) {
+        return null;
+      }
+
       const pe = e as PointerEvent | MouseEvent;
       const fromEvent =
         "clientX" in pe
@@ -395,9 +409,6 @@ export function SearchPage() {
 
       // IME may retarget the tap onto the filter input (and rewrite coords).
       // Only then fall back to the last real pointermove position.
-      const targetIsFilter =
-        t === filterInputRef.current ||
-        !!(t && filterInputRef.current?.contains(t));
       const imeContext =
         composingRef.current || Date.now() < imePickArmUntilRef.current;
       if (!targetIsFilter && !imeContext) return null;
@@ -742,9 +753,19 @@ export function SearchPage() {
             window.setTimeout(() => {
               if (Date.now() < ignoreBlurPickUntilRef.current) return;
               if (document.activeElement === filterInputRef.current) return;
+              // Cursor fallback is only for IME taps on the suggestion list —
+              // not when focus moved to 「맛집 찾기」 or other controls.
+              const active = document.activeElement as HTMLElement | null;
+              const nearPicker = !!(
+                active &&
+                (active === filterInputRef.current ||
+                  suggestionListRef.current?.contains(active) ||
+                  (related && suggestionListRef.current?.contains(related)))
+              );
               if (
-                Date.now() < imePickArmUntilRef.current ||
-                Date.now() - lastPointerDownAtRef.current < 500
+                nearPicker &&
+                (Date.now() < imePickArmUntilRef.current ||
+                  Date.now() - lastPointerDownAtRef.current < 500)
               ) {
                 const under = locationAtClientPoint(
                   cursorRef.current.x,
