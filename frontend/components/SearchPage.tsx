@@ -466,11 +466,11 @@ export function SearchPage() {
     };
   }, []);
 
-  // Hit-test 「맛집 찾기」 by coordinates so Hangul IME cannot eat the first
-  // press when focus is still in a composing text field (event target may be
-  // the input even though the user clicked the button).
+  // Fallback only: normal button submit handles mouse/keyboard first. Some
+  // Hangul IME paths still swallow click after composition; pointerup runs
+  // late enough to see the committed input without blocking native submit.
   useEffect(() => {
-    const onPointerDown = (e: PointerEvent) => {
+    const onPointerUp = (e: PointerEvent) => {
       if (e.button !== 0) return;
       const btn = searchButtonRef.current;
       if (!btn || btn.disabled) return;
@@ -479,13 +479,11 @@ export function SearchPage() {
       if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
         return;
       }
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      runSearchRef.current();
+      window.setTimeout(() => runSearchRef.current(), 0);
     };
-    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("pointerup", onPointerUp, true);
     return () => {
-      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("pointerup", onPointerUp, true);
     };
   }, []);
 
@@ -499,7 +497,7 @@ export function SearchPage() {
 
   const runSearch = useCallback(async () => {
     const triggerAt = Date.now();
-    // Collapse pointerdown + click (and IME duplicate deliveries) into one run.
+    // Collapse submit + fallback pointer delivery into one run.
     if (searchingRef.current) return;
     if (triggerAt - lastSearchTriggerRef.current < 500) return;
     setError(null);
@@ -559,11 +557,9 @@ export function SearchPage() {
     }
   }, [city, mode, radiusM, query]);
 
-  useEffect(() => {
-    runSearchRef.current = () => {
-      void runSearch();
-    };
-  }, [runSearch]);
+  runSearchRef.current = () => {
+    void runSearch();
+  };
 
   function selectRestaurant(restaurantId: string) {
     setSelectedRestaurantId(restaurantId);
@@ -932,14 +928,8 @@ export function SearchPage() {
       <div className="space-y-2 pt-1">
         <button
           ref={searchButtonRef}
-          type="button"
+          type="submit"
           disabled={loading}
-          onClick={(e) => {
-            // Keyboard / accessibility path. Mouse is handled by document
-            // coordinate hit-test so Hangul IME cannot swallow the first press.
-            e.preventDefault();
-            void runSearch();
-          }}
           className="inline-flex w-full items-center justify-center rounded-chip bg-brand-gradient px-6 py-3.5 text-sm font-semibold text-white shadow-glow transition duration-200 ease-soft hover:brightness-105 disabled:opacity-55"
         >
           {loading ? "검색 중…" : "맛집 찾기"}
