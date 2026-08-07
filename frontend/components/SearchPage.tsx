@@ -96,9 +96,13 @@ export function SearchPage() {
   const listRef = useRef<HTMLDivElement | null>(null);
   const filterInputRef = useRef<HTMLInputElement | null>(null);
   const queryInputRef = useRef<HTMLInputElement | null>(null);
+  const searchButtonRef = useRef<HTMLButtonElement | null>(null);
+  const locationPickerRef = useRef<HTMLDivElement | null>(null);
   const filterDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedRef = useRef<LocationCatalogItem[]>([]);
   const searchingRef = useRef(false);
+  const runSearchRef = useRef<() => void>(() => {});
+  const lastSearchTriggerRef = useRef(0);
   const filteredRef = useRef<LocationCatalogItem[]>([]);
   const catalogByIdRef = useRef<Map<string, LocationCatalogItem>>(new Map());
   const filterValueRef = useRef("");
@@ -367,14 +371,16 @@ export function SearchPage() {
     return locationById(row.getAttribute("data-location-id"));
   }
 
-  // Capture-phase pick: works even when IME steals/retargets the first tap
-  // (e.g. typing "지" / "동두" then clicking a row once).
+  // Location-row pick is scoped to the picker only — never document-wide.
+  // A document capture previously stole the first 「맛집 찾기」 mouse press
+  // (IME arm + preventDefault on mousedown).
   useEffect(() => {
+    const root = locationPickerRef.current;
+    if (!root) return;
+
     let pickedWithPointer = false;
 
     const onPointerMove = (e: PointerEvent) => {
-      // Track the real cursor. Do not overwrite this from click events —
-      // Hangul IME may rewrite click clientX/Y onto the focused input.
       cursorRef.current = { x: e.clientX, y: e.clientY };
     };
 
@@ -393,12 +399,7 @@ export function SearchPage() {
       const inSuggestionList = !!(
         t && suggestionListRef.current?.contains(t)
       );
-      // Clicks on submit / radius / other controls must never be rewritten
-      // into a location pick (IME arm + stale cursor used to steal the first
-      // 「맛집 찾기」 mouse press).
-      if (!targetIsFilter && !inSuggestionList) {
-        return null;
-      }
+      if (!targetIsFilter && !inSuggestionList) return null;
 
       const pe = e as PointerEvent | MouseEvent;
       const fromEvent =
@@ -407,8 +408,6 @@ export function SearchPage() {
           : null;
       if (fromEvent) return fromEvent;
 
-      // IME may retarget the tap onto the filter input (and rewrite coords).
-      // Only then fall back to the last real pointermove position.
       const imeContext =
         composingRef.current || Date.now() < imePickArmUntilRef.current;
       if (!targetIsFilter && !imeContext) return null;
@@ -433,7 +432,6 @@ export function SearchPage() {
       pickedWithPointer = tryPick(e);
     };
     const onMouseDown = (e: Event) => {
-      // Safari / IME: pointerdown may be missing; skip if pointer already picked.
       if (pickedWithPointer) {
         pickedWithPointer = false;
         e.preventDefault();
@@ -442,8 +440,6 @@ export function SearchPage() {
       tryPick(e);
     };
     const onPointerUp = (e: Event) => {
-      // Some IME paths suppress pointerdown/click but still deliver pointerup
-      // after compositionend — honor that within the arm window.
       if (
         !pickedWithPointer &&
         (composingRef.current || Date.now() < imePickArmUntilRef.current)
@@ -456,31 +452,60 @@ export function SearchPage() {
       pickedWithPointer = false;
     };
 
-    document.addEventListener("pointermove", onPointerMove, true);
-    document.addEventListener("pointerdown", onPointerDown, true);
-    document.addEventListener("mousedown", onMouseDown, true);
-    document.addEventListener("pointerup", onPointerUp, true);
-    document.addEventListener("pointercancel", onPointerCancel, true);
+    root.addEventListener("pointermove", onPointerMove, true);
+    root.addEventListener("pointerdown", onPointerDown, true);
+    root.addEventListener("mousedown", onMouseDown, true);
+    root.addEventListener("pointerup", onPointerUp, true);
+    root.addEventListener("pointercancel", onPointerCancel, true);
     return () => {
-      document.removeEventListener("pointermove", onPointerMove, true);
+      root.removeEventListener("pointermove", onPointerMove, true);
+      root.removeEventListener("pointerdown", onPointerDown, true);
+      root.removeEventListener("mousedown", onMouseDown, true);
+      root.removeEventListener("pointerup", onPointerUp, true);
+      root.removeEventListener("pointercancel", onPointerCancel, true);
+    };
+  }, []);
+
+  // Hit-test 「맛집 찾기」 by coordinates so Hangul IME cannot eat the first
+  // press when focus is still in a composing text field (event target may be
+  // the input even though the user clicked the button).
+  useEffect(() => {
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      const btn = searchButtonRef.current;
+      if (!btn || btn.disabled) return;
+      const rect = btn.getBoundingClientRect();
+      const { clientX: x, clientY: y } = e;
+      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+        return;
+      }
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      runSearchRef.current();
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
       document.removeEventListener("pointerdown", onPointerDown, true);
-      document.removeEventListener("mousedown", onMouseDown, true);
-      document.removeEventListener("pointerup", onPointerUp, true);
-      document.removeEventListener("pointercancel", onPointerCancel, true);
     };
   }, []);
 
   function removeLocation(id: string) {
-    setSelected((prev) => prev.filter((s) => s.id !== id));
+    setSelected((prev) => {
+      const next = prev.filter((s) => s.id !== id);
+      selectedRef.current = next;
+      return next;
+    });
   }
 
   const runSearch = useCallback(async () => {
+    const triggerAt = Date.now();
+    // Collapse pointerdown + click (and IME duplicate deliveries) into one run.
     if (searchingRef.current) return;
+    if (triggerAt - lastSearchTriggerRef.current < 500) return;
     setError(null);
 
     // Block blur/IME handlers from racing the first mouse press on search.
-    const now = Date.now();
-    ignoreBlurPickUntilRef.current = now + 600;
+    ignoreBlurPickUntilRef.current = triggerAt + 600;
     imePickArmUntilRef.current = 0;
 
     // If the user typed a unique station (e.g. 지행) but IME ate the list
@@ -505,15 +530,7 @@ export function SearchPage() {
       return;
     }
 
-    // Commit Hangul IME in focused fields so the first click is not eaten.
-    const active = document.activeElement as HTMLElement | null;
-    if (
-      active &&
-      (active === filterInputRef.current || active === queryInputRef.current)
-    ) {
-      active.blur();
-    }
-
+    lastSearchTriggerRef.current = triggerAt;
     searchingRef.current = true;
     setLoading(true);
     setSelectedRestaurantId(null);
@@ -541,6 +558,12 @@ export function SearchPage() {
       setLoading(false);
     }
   }, [city, mode, radiusM, query]);
+
+  useEffect(() => {
+    runSearchRef.current = () => {
+      void runSearch();
+    };
+  }, [runSearch]);
 
   function selectRestaurant(restaurantId: string) {
     setSelectedRestaurantId(restaurantId);
@@ -704,6 +727,7 @@ export function SearchPage() {
           </div>
         ) : null}
 
+        <div ref={locationPickerRef}>
         <input
           id="ll-location"
           ref={filterInputRef}
@@ -721,7 +745,7 @@ export function SearchPage() {
             composingRef.current = false;
             // Chrome/Safari often fire compositionend BEFORE the confirming
             // click. Arm a short window so the following pointerdown still
-            // selects via document capture (and recover from cursor position
+            // selects via picker capture (and recover from cursor position
             // if the click coords were rewritten onto this input).
             imePickArmUntilRef.current = Date.now() + 500;
             window.requestAnimationFrame(() => {
@@ -860,6 +884,7 @@ export function SearchPage() {
             })
           )}
         </ul>
+        </div>
       </div>
 
       <div>
@@ -906,20 +931,14 @@ export function SearchPage() {
 
       <div className="space-y-2 pt-1">
         <button
+          ref={searchButtonRef}
           type="button"
           disabled={loading}
-          onPointerDown={(e) => {
-            // pointerdown + preventDefault: Hangul IME must not consume the
-            // first press when focus is still in a text field.
-            if (e.button !== 0 || loading) return;
-            e.preventDefault();
-            e.stopPropagation();
-            void runSearch();
-          }}
           onClick={(e) => {
-            // Fallback when pointerdown was skipped (keyboard / some a11y paths).
+            // Keyboard / accessibility path. Mouse is handled by document
+            // coordinate hit-test so Hangul IME cannot swallow the first press.
             e.preventDefault();
-            if (!loading) void runSearch();
+            void runSearch();
           }}
           className="inline-flex w-full items-center justify-center rounded-chip bg-brand-gradient px-6 py-3.5 text-sm font-semibold text-white shadow-glow transition duration-200 ease-soft hover:brightness-105 disabled:opacity-55"
         >
