@@ -10,6 +10,7 @@ import {
   type MouseEvent,
 } from "react";
 import { fetchLocations, searchRestaurants, toLocationPayload } from "@/lib/api";
+import { resolveLocationPick } from "@/lib/locationPick";
 import {
   CITIES,
   DEFAULT_FOOD_QUERY,
@@ -339,18 +340,7 @@ export function SearchPage() {
   }, [addLocation]);
 
   function resolveBlurSelection(): LocationCatalogItem | null {
-    const items = filteredRef.current;
-    const q = filterValueRef.current.trim();
-    if (!q || items.length === 0) return null;
-    const exact = items.find(
-      (i) =>
-        i.name === q ||
-        i.name === `${q}역` ||
-        i.name.toLowerCase() === q.toLowerCase(),
-    );
-    if (exact) return exact;
-    if (items.length === 1) return items[0];
-    return null;
+    return resolveLocationPick(filterValueRef.current, filteredRef.current);
   }
 
   /** Pick a row from the closed-over item — never re-resolve via a reshuffled list. */
