@@ -44,6 +44,36 @@ def test_empty_passthrough():
     assert expand_food_queries("  ") == [""]
 
 
+def test_suljip_expands_broadly():
+    terms = expand_food_queries("술집")
+    assert terms[0] == "술집"
+    for expected in ("펍", "호프", "포차", "이자카야", "와인바", "칵테일바"):
+        assert expected in terms
+    assert kakao_category_group("술집") == KAKAO_CATEGORY_FOOD
+
+
+def test_pub_stays_beer_pub_focused():
+    terms = expand_food_queries("펍")
+    assert "펍" in terms
+    assert "호프" in terms
+    assert "맥주" in terms
+    assert "포차" not in terms
+    assert "이자카야" not in terms
+    assert "와인바" not in terms
+
+
+def test_bar_alone_is_not_expanded():
+    assert expand_food_queries("바") == ["바"]
+
+
+def test_hof_mirrors_pub_focus():
+    terms = expand_food_queries("호프")
+    assert terms[0] == "호프"
+    assert "펍" in terms
+    assert "맥주" in terms
+    assert "포차" not in terms
+
+
 @pytest.mark.asyncio
 async def test_live_kakao_fans_out_cuisine_expansions():
     seen_queries: set[str] = set()

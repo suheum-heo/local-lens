@@ -7,6 +7,10 @@ cuisine terms fan out to those related keywords and results are merged.
 Cafe intent is special in Korea: ``카페`` means a coffee shop, not a
 restaurant. Those queries use Kakao category ``CE7`` (see ``kakao_category_group``)
 and stay on coffee-focused keywords — not dessert/bakery restaurant fan-out.
+
+Nightlife is fine-grained: ``술집`` fans out broadly, but ``펍`` / ``호프``
+stay beer-pub oriented (no 포차 / 이자카야). Bare ``바`` is not expanded —
+too ambiguous for Kakao keyword search. No place-name hardcoding.
 """
 
 from __future__ import annotations
@@ -27,6 +31,20 @@ _CAFE_INTENT_KEYS = frozenset(
         "커피샵",
     }
 )
+
+# Shared nightlife keyword packs (no place lists).
+_SULJIP_VARIANTS = (
+    "술집",
+    "호프",
+    "펍",
+    "이자카야",
+    "포차",
+    "와인바",
+    "칵테일바",
+    "요리주점",
+)
+_PUB_VARIANTS = ("펍", "호프", "맥주")
+_HOF_VARIANTS = ("호프", "펍", "맥주")
 
 # Umbrella cuisine → Kakao keyword variants (primary term first).
 # Keys are lowercased / stripped lookup forms.
@@ -64,6 +82,20 @@ _CUISINE_EXPANSIONS: dict[str, tuple[str, ...]] = {
     "coffee": ("커피", "카페"),
     "고기": ("고기", "삼겹살", "갈비", "고기집", "육류"),
     "해물": ("해물", "횟집", "생선", "조개", "대게"),
+    # Nightlife — broad vs fine-grained (see module docstring).
+    "술집": _SULJIP_VARIANTS,
+    "주점": _SULJIP_VARIANTS,
+    "펍": _PUB_VARIANTS,
+    "pub": _PUB_VARIANTS,
+    "호프": _HOF_VARIANTS,
+    "hof": _HOF_VARIANTS,
+    "이자카야": ("이자카야", "일식주점"),
+    "izakaya": ("이자카야", "일식주점"),
+    "포차": ("포차", "포장마차"),
+    "와인바": ("와인바", "와인"),
+    "wine bar": ("와인바", "와인"),
+    "칵테일바": ("칵테일바", "칵테일"),
+    "cocktail bar": ("칵테일바", "칵테일"),
 }
 
 
