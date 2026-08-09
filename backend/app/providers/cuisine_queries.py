@@ -4,6 +4,11 @@ Kakao Local classifies many Western-style places as ``패밀리레스토랑``,
 ``파스타``, etc. rather than ``양식``. Users search by food, so umbrella
 cuisine terms fan out to those related keywords and results are merged.
 
+Specific dish keywords (``햄버거``, ``파스타``, …) are also filtered after
+search: Kakao often returns sibling cuisine hits (bare ``양식``, bakery,
+unrelated 일식) that do not actually match the dish. Umbrella terms like
+``양식`` / ``일식`` stay unfiltered.
+
 Cafe intent is special in Korea: ``카페`` means a coffee shop, not a
 restaurant. Those queries use Kakao category ``CE7`` (see ``kakao_category_group``)
 and stay on coffee-focused keywords — not dessert/bakery restaurant fan-out.
@@ -110,6 +115,56 @@ def kakao_category_group(query: str) -> str:
     return KAKAO_CATEGORY_CAFE if is_cafe_intent(query) else KAKAO_CATEGORY_FOOD
 
 
+# Specific dish / style keywords → tokens that must appear in Kakao
+# place_name or category_name. Umbrella keys (양식, 일식, …) are omitted on
+# purpose so broad searches stay broad.
+_DISH_RELEVANCE_TOKENS: dict[str, tuple[str, ...]] = {
+    "햄버거": (
+        "햄버거",
+        "버거",
+        "burger",
+        "hamburger",
+        "맥도날드",
+        "버거킹",
+        "롯데리아",
+        "맘스터치",
+        "쉐이크쉑",
+        "노브랜드버거",
+        "수제버거",
+        "크라제버거",
+        "파이브가이즈",
+    ),
+    "파스타": ("파스타", "pasta", "스파게티", "spaghetti", "링귀니", "까르보나라"),
+    "피자": ("피자", "pizza"),
+    "스테이크": ("스테이크", "steak", "립", "바베큐", "바비큐", "barbeque", "barbecue"),
+    "브런치": ("브런치", "brunch"),
+    "경양식": ("경양식",),
+    "패밀리레스토랑": ("패밀리레스토랑", "패밀리 레스토랑", "family"),
+    "이탈리안": ("이탈리안", "이탈리아", "italian", "파스타", "피자"),
+    "이탈리아": ("이탈리안", "이탈리아", "italian", "파스타", "피자"),
+    "스시": ("스시", "초밥", "sushi", "회"),
+    "초밥": ("초밥", "스시", "sushi"),
+    "라멘": ("라멘", "ramen"),
+    "돈카츠": ("돈카츠", "돈가스", "katsu"),
+    "우동": ("우동",),
+    "짜장": ("짜장",),
+    "짬뽕": ("짬뽕",),
+    "마라": ("마라",),
+    "딤섬": ("딤섬", "만두"),
+    "떡볶이": ("떡볶이",),
+    "김밥": ("김밥",),
+    "삼겹살": ("삼겹",),
+    "갈비": ("갈비",),
+    "이자카야": ("이자카야", "일식주점"),
+    "일식주점": ("이자카야", "일식주점"),
+    "포차": ("포차", "포장마차"),
+    "포장마차": ("포차", "포장마차"),
+    "와인바": ("와인바", "와인"),
+    "칵테일바": ("칵테일바", "칵테일"),
+    "맥주": ("맥주", "호프", "펍", "beer"),
+}
+
+
 def expand_food_queries(query: str) -> list[str]:
     """Return unique Kakao keyword queries for a user food search.
 
@@ -134,3 +189,31 @@ def expand_food_queries(query: str) -> list[str]:
     if cleaned not in seen:
         out.insert(0, cleaned)
     return out
+
+
+def dish_relevance_tokens(keyword: str) -> tuple[str, ...] | None:
+    """Return relevance tokens for a specific dish keyword, or None if unfiltered."""
+    cleaned = (keyword or "").strip()
+    if not cleaned:
+        return None
+    return _DISH_RELEVANCE_TOKENS.get(cleaned.lower()) or _DISH_RELEVANCE_TOKENS.get(
+        cleaned
+    )
+
+
+def place_matches_food_keyword(
+    keyword: str,
+    *,
+    name: str,
+    category: str | None = None,
+) -> bool:
+    """True when a Kakao hit is on-topic for ``keyword``.
+
+    Specific dishes require a token hit in name/category. Umbrella and
+    unknown keywords accept all hits (Kakao already keyword-scoped them).
+    """
+    tokens = dish_relevance_tokens(keyword)
+    if not tokens:
+        return True
+    haystack = f"{name or ''} {category or ''}".lower()
+    return any(token.lower() in haystack for token in tokens)

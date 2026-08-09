@@ -7,7 +7,11 @@ import math
 from app.domain.locations import SearchArea
 from app.domain.models import KakaoPlaceData
 from app.providers.base import KakaoLocalProvider
-from app.providers.cuisine_queries import expand_food_queries
+from app.providers.cuisine_queries import (
+    dish_relevance_tokens,
+    expand_food_queries,
+    place_matches_food_keyword,
+)
 from app.providers.mock_data import ALL_KAKAO
 
 
@@ -32,10 +36,15 @@ def _matches_query(place: KakaoPlaceData, query: str) -> bool:
         q = term.strip().lower()
         if not q:
             return True
-        if q in haystack:
-            return True
         # Broad fallback for short / generic food queries in mock UX
         if q in ("맛집", "restaurant", "restaurants", "food") or len(q) <= 2:
+            return True
+        if not place_matches_food_keyword(
+            term, name=place.name, category=place.category
+        ):
+            continue
+        # Specific dish: token match is enough. Umbrella: need term in text.
+        if dish_relevance_tokens(term) is not None or q in haystack:
             return True
     return False
 

@@ -13,6 +13,8 @@ Notes:
     fan out across a small grid of origins and merge/dedupe within the search radius.
   - Umbrella cuisine terms (e.g. 양식) expand to related Kakao keywords so places
     tagged as 패밀리레스토랑 / 파스타 still appear when the food intent matches.
+  - Specific dish keywords (e.g. 햄버거) drop off-topic Kakao siblings whose
+    name/category lack dish relevance tokens.
 """
 
 from __future__ import annotations
@@ -29,7 +31,11 @@ from app.domain.contracts import DEFAULT_FOOD_QUERY
 from app.domain.locations import SearchArea
 from app.domain.models import KakaoPlaceData
 from app.providers.base import KakaoLocalProvider
-from app.providers.cuisine_queries import expand_food_queries, kakao_category_group
+from app.providers.cuisine_queries import (
+    expand_food_queries,
+    kakao_category_group,
+    place_matches_food_keyword,
+)
 from app.providers.errors import ApiCallCounter, ProviderAPIError, ProviderConfigError
 
 logger = logging.getLogger(__name__)
@@ -87,6 +93,7 @@ class LiveKakaoLocalProvider(KakaoLocalProvider):
         queries = expand_food_queries(query)
         # Cafe intent → CE7; everything else stays FD6 (음식점).
         category_group = kakao_category_group(query)
+        jobs = [(q, lat, lon) for q in queries for lat, lon in origins]
 
         async with httpx.AsyncClient(
             timeout=REQUEST_TIMEOUT_S,
@@ -103,14 +110,17 @@ class LiveKakaoLocalProvider(KakaoLocalProvider):
                         radius_m=cell_radius,
                         category_group_code=category_group,
                     )
-                    for q in queries
-                    for lat, lon in origins
+                    for q, lat, lon in jobs
                 ]
             )
 
         collected: dict[str, KakaoPlaceData] = {}
-        for places in batches:
+        for (q, _lat, _lon), places in zip(jobs, batches, strict=True):
             for place in places:
+                if not place_matches_food_keyword(
+                    q, name=place.name, category=place.category
+                ):
+                    continue
                 if (
                     _haversine_m(
                         area.latitude,

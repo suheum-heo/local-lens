@@ -11,6 +11,7 @@ from app.providers.cuisine_queries import (
     expand_food_queries,
     is_cafe_intent,
     kakao_category_group,
+    place_matches_food_keyword,
 )
 from app.providers.errors import ApiCallCounter
 from app.providers.kakao import LiveKakaoLocalProvider
@@ -74,6 +75,59 @@ def test_hof_mirrors_pub_focus():
     assert "포차" not in terms
 
 
+def test_hamburger_does_not_expand_to_yangsik():
+    assert expand_food_queries("햄버거") == ["햄버거"]
+
+
+def test_hamburger_rejects_bare_western_and_bakery():
+    assert place_matches_food_keyword(
+        "햄버거",
+        name="수제버거집",
+        category="음식점 > 양식 > 햄버거",
+    )
+    assert place_matches_food_keyword(
+        "햄버거",
+        name="맥도날드 합정점",
+        category="음식점 > 패스트푸드 > 맥도날드",
+    )
+    assert not place_matches_food_keyword(
+        "햄버거",
+        name="뉴욕아파트먼트",
+        category="음식점 > 양식",
+    )
+    assert not place_matches_food_keyword(
+        "햄버거",
+        name="파리바게뜨 합정점",
+        category="음식점 > 간식 > 제과,베이커리 > 파리바게뜨",
+    )
+    assert not place_matches_food_keyword(
+        "햄버거",
+        name="안짱",
+        category="음식점 > 일식",
+    )
+
+
+def test_pasta_and_ramen_require_dish_tokens():
+    assert place_matches_food_keyword(
+        "파스타", name="면식당", category="음식점 > 양식 > 파스타"
+    )
+    assert not place_matches_food_keyword(
+        "파스타", name="스테이크하우스", category="음식점 > 양식"
+    )
+    assert place_matches_food_keyword(
+        "라멘", name="이치란", category="음식점 > 일식 > 라멘"
+    )
+    assert not place_matches_food_keyword(
+        "라멘", name="스시명소", category="음식점 > 일식 > 초밥,롤"
+    )
+
+
+def test_umbrella_yangsik_is_not_dish_filtered():
+    assert place_matches_food_keyword(
+        "양식", name="뉴욕아파트먼트", category="음식점 > 양식"
+    )
+
+
 @pytest.mark.asyncio
 async def test_live_kakao_fans_out_cuisine_expansions():
     seen_queries: set[str] = set()
@@ -121,3 +175,45 @@ async def test_live_kakao_cafe_uses_ce7_category():
     results = await provider.search_restaurants(_area(), "카페")
     assert seen_categories == {KAKAO_CATEGORY_CAFE}
     assert results and results[0].name == "합정 카페"
+
+
+@pytest.mark.asyncio
+async def test_live_kakao_filters_offtopic_hamburger_hits():
+    def handler(request: httpx.Request) -> httpx.Response:
+        docs = [
+            {
+                **SAMPLE_DOC,
+                "id": "burger1",
+                "place_name": "합정버거",
+                "category_name": "음식점 > 양식 > 햄버거",
+            },
+            {
+                **SAMPLE_DOC,
+                "id": "western1",
+                "place_name": "뉴욕아파트먼트",
+                "category_name": "음식점 > 양식",
+            },
+            {
+                **SAMPLE_DOC,
+                "id": "bakery1",
+                "place_name": "파리바게뜨 합정점",
+                "category_name": "음식점 > 간식 > 제과,베이커리 > 파리바게뜨",
+            },
+            {
+                **SAMPLE_DOC,
+                "id": "mcd1",
+                "place_name": "맥도날드 합정점",
+                "category_name": "음식점 > 패스트푸드 > 맥도날드",
+            },
+        ]
+        return _kakao_page(docs, is_end=True)
+
+    provider = LiveKakaoLocalProvider(
+        api_key="test-kakao-key",
+        transport=httpx.MockTransport(handler),
+        counter=ApiCallCounter(),
+        max_pages=1,
+    )
+    results = await provider.search_restaurants(_area(), "햄버거")
+    names = {r.name for r in results}
+    assert names == {"합정버거", "맥도날드 합정점"}
