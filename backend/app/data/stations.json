@@ -1,5 +1,15 @@
 [
   {
+    "id": "st_가야대_499782",
+    "name": "가야대역",
+    "name_en": null,
+    "city": "busan",
+    "latitude": 35.266815,
+    "longitude": 128.864973,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_가야_161074",
     "name": "가야역",
     "name_en": null,
@@ -210,12 +220,32 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_기장_734835",
+    "name": "기장역",
+    "name_en": null,
+    "city": "busan",
+    "latitude": 35.244552,
+    "longitude": 129.218862,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_김해대학_499789",
     "name": "김해대학역",
     "name_en": null,
     "city": "busan",
     "latitude": 35.228997,
     "longitude": 128.915582,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_김해시청_499786",
+    "name": "김해시청역",
+    "name_en": null,
+    "city": "busan",
+    "latitude": 35.227122,
+    "longitude": 128.890388,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -290,12 +320,32 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_노포_160892",
+    "name": "노포역",
+    "name_en": null,
+    "city": "busan",
+    "latitude": 35.283844,
+    "longitude": 129.095024,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_다대포항_670882",
     "name": "다대포항역",
     "name_en": null,
     "city": "busan",
     "latitude": 35.057678,
     "longitude": 128.971307,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_다대포해수욕장_636400",
+    "name": "다대포해수욕장역",
+    "name_en": null,
+    "city": "busan",
+    "latitude": 35.048161,
+    "longitude": 128.965783,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -570,6 +620,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_박물관_259628",
+    "name": "박물관역",
+    "name_en": null,
+    "city": "busan",
+    "latitude": 35.240059,
+    "longitude": 128.871887,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_반여농산물시장_016005",
     "name": "반여농산물시장역",
     "name_en": null,
@@ -630,6 +690,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_봉황_499788",
+    "name": "봉황역",
+    "name_en": null,
+    "city": "busan",
+    "latitude": 35.227282,
+    "longitude": 128.874278,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_부산대_160490",
     "name": "부산대역",
     "name_en": null,
@@ -676,6 +746,16 @@
     "city": "busan",
     "latitude": 35.157364,
     "longitude": 129.050171,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_부원_051565",
+    "name": "부원역",
+    "name_en": null,
+    "city": "busan",
+    "latitude": 35.226494,
+    "longitude": 128.883942,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -810,6 +890,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_수로왕릉_499783",
+    "name": "수로왕릉역",
+    "name_en": null,
+    "city": "busan",
+    "latitude": 35.23282,
+    "longitude": 128.872164,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_수안_160908",
     "name": "수안역",
     "name_en": null,
@@ -900,6 +990,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_안평_160954",
+    "name": "안평역",
+    "name_en": null,
+    "city": "busan",
+    "latitude": 35.237369,
+    "longitude": 129.171763,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_양정_338992",
     "name": "양정역",
     "name_en": null,
@@ -916,6 +1016,16 @@
     "city": "busan",
     "latitude": 35.185678,
     "longitude": 129.082011,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_연지공원_880513",
+    "name": "연지공원역",
+    "name_en": null,
+    "city": "busan",
+    "latitude": 35.24964,
+    "longitude": 128.869286,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -950,6 +1060,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_월내_700986",
+    "name": "월내역",
+    "name_en": null,
+    "city": "busan",
+    "latitude": 35.328102,
+    "longitude": 129.276717,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_윗반송_016014",
     "name": "윗반송역",
     "name_en": null,
@@ -980,6 +1100,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_일광_315819",
+    "name": "일광역",
+    "name_en": null,
+    "city": "busan",
+    "latitude": 35.267581,
+    "longitude": 129.233093,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_자갈치_160488",
     "name": "자갈치역",
     "name_en": null,
@@ -1006,6 +1136,16 @@
     "city": "busan",
     "latitude": 35.169956,
     "longitude": 129.177023,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_장신대_903416",
+    "name": "장신대역",
+    "name_en": null,
+    "city": "busan",
+    "latitude": 35.259521,
+    "longitude": 128.867201,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -1050,12 +1190,12 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_좌천_160874",
+    "id": "st_좌천_681351",
     "name": "좌천역",
     "name_en": null,
     "city": "busan",
-    "latitude": 35.134382,
-    "longitude": 129.054455,
+    "latitude": 35.311832,
+    "longitude": 129.245295,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -1190,12 +1330,32 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_각산_161085",
+    "name": "각산역",
+    "name_en": null,
+    "city": "daegu",
+    "latitude": 35.867994,
+    "longitude": 128.724242,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_감삼_160919",
     "name": "감삼역",
     "name_en": null,
     "city": "daegu",
     "latitude": 35.854309,
     "longitude": 128.548125,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_강창_046501",
+    "name": "강창역",
+    "name_en": null,
+    "city": "daegu",
+    "latitude": 35.853082,
+    "longitude": 128.47853,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -1260,6 +1420,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_구암_605350",
+    "name": "구암역",
+    "name_en": null,
+    "city": "daegu",
+    "latitude": 35.925746,
+    "longitude": 128.550346,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_남산_202370",
     "name": "남산역",
     "name_en": null,
@@ -1276,6 +1446,16 @@
     "city": "daegu",
     "latitude": 35.860123,
     "longitude": 128.56464,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_다사_161016",
+    "name": "다사역",
+    "name_en": null,
+    "city": "daegu",
+    "latitude": 35.864827,
+    "longitude": 128.458391,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -1330,6 +1510,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_대구한의대병원_360574",
+    "name": "대구한의대병원역",
+    "name_en": null,
+    "city": "daegu",
+    "latitude": 35.871677,
+    "longitude": 128.75097,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_대명_161011",
     "name": "대명역",
     "name_en": null,
@@ -1350,6 +1540,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_대실_474436",
+    "name": "대실역",
+    "name_en": null,
+    "city": "daegu",
+    "latitude": 35.857606,
+    "longitude": 128.46525,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_동구청_160911",
     "name": "동구청역",
     "name_en": null,
@@ -1366,6 +1566,16 @@
     "city": "daegu",
     "latitude": 35.877554,
     "longitude": 128.627915,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_동천_202385",
+    "name": "동천역",
+    "name_en": null,
+    "city": "daegu",
+    "latitude": 35.93771,
+    "longitude": 128.556683,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -1410,12 +1620,42 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_매천시장_202380",
+    "name": "매천시장역",
+    "name_en": null,
+    "city": "daegu",
+    "latitude": 35.904369,
+    "longitude": 128.545742,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_매천_202381",
+    "name": "매천역",
+    "name_en": null,
+    "city": "daegu",
+    "latitude": 35.912678,
+    "longitude": 128.543413,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_명덕_161089",
     "name": "명덕역",
     "name_en": null,
     "city": "daegu",
     "latitude": 35.857827,
     "longitude": 128.591109,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_문양_160916",
+    "name": "문양역",
+    "name_en": null,
+    "city": "daegu",
+    "latitude": 35.864158,
+    "longitude": 128.437003,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -1490,6 +1730,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_사월_161091",
+    "name": "사월역",
+    "name_en": null,
+    "city": "daegu",
+    "latitude": 35.837032,
+    "longitude": 128.715308,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_상인_160910",
     "name": "상인역",
     "name_en": null,
@@ -1526,6 +1776,16 @@
     "city": "daegu",
     "latitude": 35.837183,
     "longitude": 128.557191,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_설화명곡_380631",
+    "name": "설화명곡역",
+    "name_en": null,
+    "city": "daegu",
+    "latitude": 35.798718,
+    "longitude": 128.489362,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -1636,6 +1896,16 @@
     "city": "daegu",
     "latitude": 35.887202,
     "longitude": 128.639921,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_안심_160461",
+    "name": "안심역",
+    "name_en": null,
+    "city": "daegu",
+    "latitude": 35.871213,
+    "longitude": 128.73377,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -1810,12 +2080,52 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_칠곡경대병원_605294",
+    "name": "칠곡경대병원역",
+    "name_en": null,
+    "city": "daegu",
+    "latitude": 35.958391,
+    "longitude": 128.559895,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_칠곡운암_202384",
+    "name": "칠곡운암역",
+    "name_en": null,
+    "city": "daegu",
+    "latitude": 35.931462,
+    "longitude": 128.554539,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_칠성시장_160494",
     "name": "칠성시장역",
     "name_en": null,
     "city": "daegu",
     "latitude": 35.876101,
     "longitude": 128.605134,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_태전_202382",
+    "name": "태전역",
+    "name_en": null,
+    "city": "daegu",
+    "latitude": 35.919648,
+    "longitude": 128.547426,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_팔거_202386",
+    "name": "팔거역",
+    "name_en": null,
+    "city": "daegu",
+    "latitude": 35.944051,
+    "longitude": 128.558337,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -1840,6 +2150,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_학정_605331",
+    "name": "학정역",
+    "name_en": null,
+    "city": "daegu",
+    "latitude": 35.951559,
+    "longitude": 128.559202,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_해안_160508",
     "name": "해안역",
     "name_en": null,
@@ -1856,6 +2176,16 @@
     "city": "daegu",
     "latitude": 35.840949,
     "longitude": 128.581471,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_화원_981591",
+    "name": "화원역",
+    "name_en": null,
+    "city": "daegu",
+    "latitude": 35.804472,
+    "longitude": 128.500726,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -2100,6 +2430,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_곤지암_042675",
+    "name": "곤지암역",
+    "name_en": null,
+    "city": "gwangju",
+    "latitude": 37.35054,
+    "longitude": 127.346251,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_공항_161103",
     "name": "공항역",
     "name_en": null,
@@ -2280,6 +2620,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_초월_470942",
+    "name": "초월역",
+    "name_en": null,
+    "city": "gwangju",
+    "latitude": 37.373379,
+    "longitude": 127.299905,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_평동_161027",
     "name": "평동역",
     "name_en": null,
@@ -2370,6 +2720,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_검단사거리_066386",
+    "name": "검단사거리역",
+    "name_en": null,
+    "city": "incheon",
+    "latitude": 37.60166,
+    "longitude": 126.656438,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_검단오류_195227",
     "name": "검단오류역",
     "name_en": null,
@@ -2386,6 +2746,26 @@
     "city": "incheon",
     "latitude": 37.602406,
     "longitude": 126.688281,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_검바위_139049",
+    "name": "검바위역",
+    "name_en": null,
+    "city": "incheon",
+    "latitude": 37.561126,
+    "longitude": 126.677531,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_검암_399940",
+    "name": "검암역",
+    "name_en": null,
+    "city": "incheon",
+    "latitude": 37.568677,
+    "longitude": 126.675675,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -2420,18 +2800,8 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_계양_공항철도_161052",
-    "name": "계양역 공항철도",
-    "name_en": null,
-    "city": "incheon",
-    "latitude": 37.571771,
-    "longitude": 126.736274,
-    "mode": "station",
-    "default_radius_m": 1000
-  },
-  {
-    "id": "st_공항화물청사_공항철도_160734",
-    "name": "공항화물청사역 공항철도",
+    "id": "st_공항화물청사_160734",
+    "name": "공항화물청사역",
     "name_en": null,
     "city": "incheon",
     "latitude": 37.459061,
@@ -2566,6 +2936,16 @@
     "city": "incheon",
     "latitude": 37.404576,
     "longitude": 126.680851,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_마전_949608",
+    "name": "마전역",
+    "name_en": null,
+    "city": "incheon",
+    "latitude": 37.597635,
+    "longitude": 126.667221,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -2870,8 +3250,8 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_영종_공항철도_531321",
-    "name": "영종역 공항철도",
+    "id": "st_영종_531321",
+    "name": "영종역",
     "name_en": null,
     "city": "incheon",
     "latitude": 37.512029,
@@ -2890,8 +3270,28 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_운서_공항철도_160783",
-    "name": "운서역 공항철도",
+    "id": "st_완정_613640",
+    "name": "완정역",
+    "name_en": null,
+    "city": "incheon",
+    "latitude": 37.592841,
+    "longitude": 126.673034,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_왕길_471990",
+    "name": "왕길역",
+    "name_en": null,
+    "city": "incheon",
+    "latitude": 37.59513,
+    "longitude": 126.642477,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_운서_160783",
+    "name": "운서역",
     "name_en": null,
     "city": "incheon",
     "latitude": 37.492808,
@@ -2930,8 +3330,8 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_인천공항1터미널_공항철도_161050",
-    "name": "인천공항1터미널역 공항철도",
+    "id": "st_인천공항1터미널_161050",
+    "name": "인천공항1터미널역",
     "name_en": null,
     "city": "incheon",
     "latitude": 37.447529,
@@ -2940,8 +3340,8 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_인천공항2터미널_공항철도_163025",
-    "name": "인천공항2터미널역 공항철도",
+    "id": "st_인천공항2터미널_163025",
+    "name": "인천공항2터미널역",
     "name_en": null,
     "city": "incheon",
     "latitude": 37.468801,
@@ -3080,8 +3480,8 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_청라국제도시_공항철도_907984",
-    "name": "청라국제도시역 공항철도",
+    "id": "st_청라국제도시_907984",
+    "name": "청라국제도시역",
     "name_en": null,
     "city": "incheon",
     "latitude": 37.556464,
@@ -3116,6 +3516,156 @@
     "city": "incheon",
     "latitude": 37.401642,
     "longitude": 126.708683,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_강촌_706616",
+    "name": "강촌역",
+    "name_en": null,
+    "city": "other",
+    "latitude": 37.805722,
+    "longitude": 127.634152,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_경산_099326",
+    "name": "경산역",
+    "name_en": null,
+    "city": "other",
+    "latitude": 35.819929,
+    "longitude": 128.727233,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_굴봉산_706610",
+    "name": "굴봉산역",
+    "name_en": null,
+    "city": "other",
+    "latitude": 37.832066,
+    "longitude": 127.55777,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_김유정_706614",
+    "name": "김유정역",
+    "name_en": null,
+    "city": "other",
+    "latitude": 37.818449,
+    "longitude": 127.714324,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_남양산_160900",
+    "name": "남양산역",
+    "name_en": null,
+    "city": "other",
+    "latitude": 35.325448,
+    "longitude": 129.019414,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_남춘천_413324",
+    "name": "남춘천역",
+    "name_en": null,
+    "city": "other",
+    "latitude": 37.864047,
+    "longitude": 127.723851,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_백양리_319016",
+    "name": "백양리역",
+    "name_en": null,
+    "city": "other",
+    "latitude": 37.830792,
+    "longitude": 127.589325,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_부산대양산캠퍼스_474344",
+    "name": "부산대양산캠퍼스역",
+    "name_en": null,
+    "city": "other",
+    "latitude": 35.316826,
+    "longitude": 129.013992,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_부호_053768",
+    "name": "부호역",
+    "name_en": null,
+    "city": "other",
+    "latitude": 35.900206,
+    "longitude": 128.803132,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_양산_160901",
+    "name": "양산역",
+    "name_en": null,
+    "city": "other",
+    "latitude": 35.33875,
+    "longitude": 129.026444,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_영남대_136378",
+    "name": "영남대역",
+    "name_en": null,
+    "city": "other",
+    "latitude": 35.836212,
+    "longitude": 128.752764,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_임당_136376",
+    "name": "임당역",
+    "name_en": null,
+    "city": "other",
+    "latitude": 35.834129,
+    "longitude": 128.740848,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_정평_455729",
+    "name": "정평역",
+    "name_en": null,
+    "city": "other",
+    "latitude": 35.834045,
+    "longitude": 128.728671,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_증산_474369",
+    "name": "증산역",
+    "name_en": null,
+    "city": "other",
+    "latitude": 35.308258,
+    "longitude": 129.010288,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_춘천_706617",
+    "name": "춘천역",
+    "name_en": null,
+    "city": "other",
+    "latitude": 37.884513,
+    "longitude": 127.716699,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -3170,6 +3720,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_가양_115681",
+    "name": "가양역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.561433,
+    "longitude": 126.854421,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_가오리_574240",
     "name": "가오리역",
     "name_en": null,
@@ -3196,6 +3756,16 @@
     "city": "seoul",
     "latitude": 37.448562,
     "longitude": 127.126697,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_가평_706605",
+    "name": "가평역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.81452,
+    "longitude": 127.510739,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -3360,8 +3930,8 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_걸포북변_김포골드라인_945418",
-    "name": "걸포북변역 김포골드라인",
+    "id": "st_걸포북변_945418",
+    "name": "걸포북변역",
     "name_en": null,
     "city": "seoul",
     "latitude": 37.631639,
@@ -3430,6 +4000,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_고려대_160766",
+    "name": "고려대역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.590442,
+    "longitude": 127.036308,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_고색_783785",
     "name": "고색역",
     "name_en": null,
@@ -3450,12 +4030,22 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_고촌_김포골드라인_411490",
-    "name": "고촌역 김포골드라인",
+    "id": "st_고잔_917519",
+    "name": "고잔역",
     "name_en": null,
     "city": "seoul",
-    "latitude": 37.601213,
-    "longitude": 126.770326,
+    "latitude": 37.316825,
+    "longitude": 126.82247,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_고진_471020",
+    "name": "고진역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.244638,
+    "longitude": 127.214184,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -3486,16 +4076,6 @@
     "city": "seoul",
     "latitude": 37.544542,
     "longitude": 126.951451,
-    "mode": "station",
-    "default_radius_m": 1000
-  },
-  {
-    "id": "st_공덕_공항철도_017501",
-    "name": "공덕역 공항철도",
-    "name_en": null,
-    "city": "seoul",
-    "latitude": 37.542315,
-    "longitude": 126.952602,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -3640,6 +4220,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_구래_372103",
+    "name": "구래역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.645393,
+    "longitude": 126.628576,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_구로디지털단지_160579",
     "name": "구로디지털단지역",
     "name_en": null,
@@ -3680,6 +4270,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_구반포_189616",
+    "name": "구반포역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.50144,
+    "longitude": 126.987465,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_구산_051253",
     "name": "구산역",
     "name_en": null,
@@ -3696,16 +4296,6 @@
     "city": "seoul",
     "latitude": 37.298979,
     "longitude": 127.105696,
-    "mode": "station",
-    "default_radius_m": 1000
-  },
-  {
-    "id": "st_구성_gtx_a_674486",
-    "name": "구성역 GTX-A",
-    "name_en": null,
-    "city": "seoul",
-    "latitude": 37.299107,
-    "longitude": 127.103861,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -3736,6 +4326,16 @@
     "city": "seoul",
     "latitude": 37.636436,
     "longitude": 126.918853,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_국수_431429",
+    "name": "국수역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.516187,
+    "longitude": 127.39931,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -3830,6 +4430,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_금호_160591",
+    "name": "금호역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.548261,
+    "longitude": 127.015829,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_기흥_110705",
     "name": "기흥역",
     "name_en": null,
@@ -3860,32 +4470,22 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_김량장_161061",
+    "name": "김량장역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.237324,
+    "longitude": 127.198611,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_김포공항_160682",
     "name": "김포공항역",
     "name_en": null,
     "city": "seoul",
     "latitude": 37.5621,
     "longitude": 126.801257,
-    "mode": "station",
-    "default_radius_m": 1000
-  },
-  {
-    "id": "st_김포공항_공항철도_160920",
-    "name": "김포공항역 공항철도",
-    "name_en": null,
-    "city": "seoul",
-    "latitude": 37.56183,
-    "longitude": 126.802473,
-    "mode": "station",
-    "default_radius_m": 1000
-  },
-  {
-    "id": "st_김포공항_김포골드라인_625973",
-    "name": "김포공항역 김포골드라인",
-    "name_en": null,
-    "city": "seoul",
-    "latitude": 37.56233,
-    "longitude": 126.801992,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -4000,6 +4600,26 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_노들_188645",
+    "name": "노들역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.512672,
+    "longitude": 126.953096,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_노량진_293715",
+    "name": "노량진역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.513586,
+    "longitude": 126.940893,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_노원_160704",
     "name": "노원역",
     "name_en": null,
@@ -4016,6 +4636,16 @@
     "city": "seoul",
     "latitude": 37.600807,
     "longitude": 126.935828,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_녹사평_160673",
+    "name": "녹사평역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.534723,
+    "longitude": 126.98655,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -4080,6 +4710,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_달미_658511",
+    "name": "달미역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.348788,
+    "longitude": 126.809416,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_달월_505793",
     "name": "달월역",
     "name_en": null,
@@ -4140,16 +4780,6 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_대곡_gtx_a_311480",
-    "name": "대곡역 GTX-A",
-    "name_en": null,
-    "city": "seoul",
-    "latitude": 37.632406,
-    "longitude": 126.810475,
-    "mode": "station",
-    "default_radius_m": 1000
-  },
-  {
     "id": "st_대공원_160559",
     "name": "대공원역",
     "name_en": null,
@@ -4186,6 +4816,16 @@
     "city": "seoul",
     "latitude": 37.513354,
     "longitude": 126.926494,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_대성리_706604",
+    "name": "대성리역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.68399,
+    "longitude": 127.379706,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -4390,7 +5030,7 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_동대문사문화공원_160597",
+    "id": "st_동대문역사문화공원_160597",
     "name": "동대문역사문화공원역",
     "name_en": null,
     "city": "seoul",
@@ -4430,6 +5070,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_동묘앞_160608",
+    "name": "동묘앞역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.573217,
+    "longitude": 127.016364,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_동백_160887",
     "name": "동백역",
     "name_en": null,
@@ -4450,6 +5100,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_동작_160647",
+    "name": "동작역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.50298,
+    "longitude": 126.980315,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_동천_392613",
     "name": "동천역",
     "name_en": null,
@@ -4460,12 +5120,22 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_동탄_gtx_a_984931",
-    "name": "동탄역 GTX-A",
+    "id": "st_동탄_984931",
+    "name": "동탄역",
     "name_en": null,
     "city": "seoul",
     "latitude": 37.199756,
     "longitude": 127.095494,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_둔전_161060",
+    "name": "둔전역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.267212,
+    "longitude": 127.213639,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -4510,16 +5180,6 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_디지털미디어시티_공항철도_256221",
-    "name": "디지털미디어시티역 공항철도",
-    "name_en": null,
-    "city": "seoul",
-    "latitude": 37.577521,
-    "longitude": 126.897882,
-    "mode": "station",
-    "default_radius_m": 1000
-  },
-  {
     "id": "st_뚝섬_160627",
     "name": "뚝섬역",
     "name_en": null,
@@ -4536,16 +5196,6 @@
     "city": "seoul",
     "latitude": 37.566713,
     "longitude": 126.827421,
-    "mode": "station",
-    "default_radius_m": 1000
-  },
-  {
-    "id": "st_마곡나루_공항철도_581878",
-    "name": "마곡나루역 공항철도",
-    "name_en": null,
-    "city": "seoul",
-    "latitude": 37.565632,
-    "longitude": 126.827496,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -4576,6 +5226,26 @@
     "city": "seoul",
     "latitude": 37.665202,
     "longitude": 127.057713,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_마산_313775",
+    "name": "마산역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.640612,
+    "longitude": 126.644004,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_마석_706599",
+    "name": "마석역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.652792,
+    "longitude": 127.311687,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -4730,6 +5400,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_명지대_160886",
+    "name": "명지대역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.238076,
+    "longitude": 127.190291,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_명학_160615",
     "name": "명학역",
     "name_en": null,
@@ -4880,6 +5560,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_발산_160847",
+    "name": "발산역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.558678,
+    "longitude": 126.837736,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_방배_160807",
     "name": "방배역",
     "name_en": null,
@@ -4936,6 +5626,16 @@
     "city": "seoul",
     "latitude": 37.642962,
     "longitude": 126.788132,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_버티고개_160760",
+    "name": "버티고개역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.547828,
+    "longitude": 127.006731,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -5020,6 +5720,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_보문_335859",
+    "name": "보문역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.585044,
+    "longitude": 127.019551,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_보산_892430",
     "name": "보산역",
     "name_en": null,
@@ -5036,6 +5746,16 @@
     "city": "seoul",
     "latitude": 37.312775,
     "longitude": 127.108337,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_보평_160885",
+    "name": "보평역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.258964,
+    "longitude": 127.218481,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -5076,6 +5796,16 @@
     "city": "seoul",
     "latitude": 37.617351,
     "longitude": 127.09136,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_부발_874244",
+    "name": "부발역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.260392,
+    "longitude": 127.490322,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -5180,8 +5910,18 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_사우_김포골드라인_082676",
-    "name": "사우역 김포골드라인",
+    "id": "st_사리_800895",
+    "name": "사리역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.290641,
+    "longitude": 126.857104,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_사우_082676",
+    "name": "사우역",
     "name_en": null,
     "city": "seoul",
     "latitude": 37.620321,
@@ -5216,6 +5956,26 @@
     "city": "seoul",
     "latitude": 37.456881,
     "longitude": 127.149942,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_삼가_160870",
+    "name": "삼가역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.24206,
+    "longitude": 127.16818,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_삼각지_277106",
+    "name": "삼각지역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.535606,
+    "longitude": 126.974055,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -5300,6 +6060,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_상도_160726",
+    "name": "상도역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.502871,
+    "longitude": 126.947918,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_상동_432525",
     "name": "상동역",
     "name_en": null,
@@ -5340,6 +6110,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_상왕십리_160535",
+    "name": "상왕십리역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.564437,
+    "longitude": 127.029272,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_상월곡_160761",
     "name": "상월곡역",
     "name_en": null,
@@ -5356,6 +6136,16 @@
     "city": "seoul",
     "latitude": 37.556678,
     "longitude": 127.165906,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_상천_706607",
+    "name": "상천역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.770178,
+    "longitude": 127.454516,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -5430,6 +6220,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_서빙고_160862",
+    "name": "서빙고역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.519568,
+    "longitude": 126.988411,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_서울대벤처타운_474580",
     "name": "서울대벤처타운역",
     "name_en": null,
@@ -5470,26 +6270,6 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_서울_gtx_a_159877",
-    "name": "서울역 GTX-A",
-    "name_en": null,
-    "city": "seoul",
-    "latitude": 37.555488,
-    "longitude": 126.972637,
-    "mode": "station",
-    "default_radius_m": 1000
-  },
-  {
-    "id": "st_서울_공항철도_161051",
-    "name": "서울역 공항철도",
-    "name_en": null,
-    "city": "seoul",
-    "latitude": 37.553329,
-    "longitude": 126.96975,
-    "mode": "station",
-    "default_radius_m": 1000
-  },
-  {
     "id": "st_서울지방병무청_844526",
     "name": "서울지방병무청역",
     "name_en": null,
@@ -5506,6 +6286,16 @@
     "city": "seoul",
     "latitude": 37.478239,
     "longitude": 126.93311,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_서정리_160514",
+    "name": "서정리역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.056564,
+    "longitude": 127.052882,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -5590,6 +6380,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_선부_175375",
+    "name": "선부역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.334408,
+    "longitude": 126.80999,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_선유도_939160",
     "name": "선유도역",
     "name_en": null,
@@ -5626,16 +6426,6 @@
     "city": "seoul",
     "latitude": 37.394745,
     "longitude": 127.11956,
-    "mode": "station",
-    "default_radius_m": 1000
-  },
-  {
-    "id": "st_성남_gtx_a_891415",
-    "name": "성남역 GTX-A",
-    "name_en": null,
-    "city": "seoul",
-    "latitude": 37.394328,
-    "longitude": 127.120548,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -5686,6 +6476,16 @@
     "city": "seoul",
     "latitude": 37.187135,
     "longitude": 127.043427,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_세종대왕릉_296364",
+    "name": "세종대왕릉역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.293633,
+    "longitude": 127.57066,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -5770,6 +6570,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_송탄_160562",
+    "name": "송탄역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.075713,
+    "longitude": 127.05428,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_송파나루_611700",
     "name": "송파나루역",
     "name_en": null,
@@ -5836,16 +6646,6 @@
     "city": "seoul",
     "latitude": 37.48746,
     "longitude": 127.102059,
-    "mode": "station",
-    "default_radius_m": 1000
-  },
-  {
-    "id": "st_수서_gtx_a_252094",
-    "name": "수서역 GTX-A",
-    "name_en": null,
-    "city": "seoul",
-    "latitude": 37.486637,
-    "longitude": 127.102559,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -5920,12 +6720,42 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_시우_873451",
+    "name": "시우역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.313164,
+    "longitude": 126.795742,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_시청_용인대_160935",
+    "name": "시청.용인대역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.239442,
+    "longitude": 127.178885,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_시청_160536",
     "name": "시청역",
     "name_en": null,
     "city": "seoul",
     "latitude": 37.563682,
     "longitude": 126.975598,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_시흥능곡_284234",
+    "name": "시흥능곡역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.369947,
+    "longitude": 126.808721,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -5940,6 +6770,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_시흥시청_062908",
+    "name": "시흥시청역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.381562,
+    "longitude": 126.805948,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_신갈_080645",
     "name": "신갈역",
     "name_en": null,
@@ -5950,12 +6790,32 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_신금호_160482",
+    "name": "신금호역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.554476,
+    "longitude": 127.020493,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_신길_577297",
     "name": "신길역",
     "name_en": null,
     "city": "seoul",
     "latitude": 37.516787,
     "longitude": 126.918367,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_신길온천_808230",
+    "name": "신길온천역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.337893,
+    "longitude": 126.766559,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -5990,6 +6850,26 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_신당_160693",
+    "name": "신당역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.566093,
+    "longitude": 127.016176,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_신대방삼거리_161040",
+    "name": "신대방삼거리역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.499757,
+    "longitude": 126.928211,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_신대방_160587",
     "name": "신대방역",
     "name_en": null,
@@ -6006,6 +6886,16 @@
     "city": "seoul",
     "latitude": 37.508222,
     "longitude": 126.891611,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_신둔도예촌_206059",
+    "name": "신둔도예촌역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.315613,
+    "longitude": 127.405243,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -6056,6 +6946,36 @@
     "city": "seoul",
     "latitude": 37.516436,
     "longitude": 127.020309,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_신설동_076990",
+    "name": "신설동역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.576551,
+    "longitude": 127.023207,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_신용산_160557",
+    "name": "신용산역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.529259,
+    "longitude": 126.967965,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_신원_436463",
+    "name": "신원역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.525586,
+    "longitude": 127.373092,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -6130,6 +7050,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_신현_673111",
+    "name": "신현역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.409565,
+    "longitude": 126.787838,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_신흥_161047",
     "name": "신흥역",
     "name_en": null,
@@ -6146,6 +7076,16 @@
     "city": "seoul",
     "latitude": 37.648543,
     "longitude": 127.034656,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_아신_666916",
+    "name": "아신역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.513919,
+    "longitude": 127.443211,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -6180,6 +7120,26 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_안산_799233",
+    "name": "안산역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.327401,
+    "longitude": 126.788019,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_안암_160853",
+    "name": "안암역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.586307,
+    "longitude": 127.029233,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_안양_160799",
     "name": "안양역",
     "name_en": null,
@@ -6200,7 +7160,7 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_암사사공원_907761",
+    "id": "st_암사역사공원_907761",
     "name": "암사역사공원역",
     "name_en": null,
     "city": "seoul",
@@ -6280,6 +7240,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_양수_996194",
+    "name": "양수역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.545963,
+    "longitude": 127.329138,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_양원_160860",
     "name": "양원역",
     "name_en": null,
@@ -6336,6 +7306,26 @@
     "city": "seoul",
     "latitude": 37.512389,
     "longitude": 126.865722,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_양천향교_428742",
+    "name": "양천향교역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.568081,
+    "longitude": 126.841979,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_양촌_922220",
+    "name": "양촌역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.641784,
+    "longitude": 126.614626,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -6420,7 +7410,17 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_곡_494023",
+    "id": "st_여주_163962",
+    "name": "여주역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.28286,
+    "longitude": 127.628529,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_역곡_494023",
     "name": "역곡역",
     "name_en": null,
     "city": "seoul",
@@ -6430,7 +7430,7 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_삼_160619",
+    "id": "st_역삼_160619",
     "name": "역삼역",
     "name_en": null,
     "city": "seoul",
@@ -6440,7 +7440,7 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_촌_000790",
+    "id": "st_역촌_000790",
     "name": "역촌역",
     "name_en": null,
     "city": "seoul",
@@ -6460,12 +7460,12 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_연신내_gtx_a_414222",
-    "name": "연신내역 GTX-A",
+    "id": "st_연천_356921",
+    "name": "연천역",
     "name_en": null,
     "city": "seoul",
-    "latitude": 37.618936,
-    "longitude": 126.920638,
+    "latitude": 38.100607,
+    "longitude": 127.073674,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -6530,6 +7530,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_오남_585444",
+    "name": "오남역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.705164,
+    "longitude": 127.191105,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_오류동_160569",
     "name": "오류동역",
     "name_en": null,
@@ -6570,12 +7580,52 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_오빈_435456",
+    "name": "오빈역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.506167,
+    "longitude": 127.473661,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_오산대_160602",
+    "name": "오산대역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.16935,
+    "longitude": 127.063076,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_오산_160564",
+    "name": "오산역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.144717,
+    "longitude": 127.06663,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_오이도_126217",
     "name": "오이도역",
     "name_en": null,
     "city": "seoul",
     "latitude": 37.362929,
     "longitude": 126.738923,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_옥수_160546",
+    "name": "옥수역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.541566,
+    "longitude": 127.017394,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -6630,12 +7680,42 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_용두_160538",
+    "name": "용두역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.574062,
+    "longitude": 127.038276,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_용마산_160703",
     "name": "용마산역",
     "name_en": null,
     "city": "seoul",
     "latitude": 37.573668,
     "longitude": 127.08672,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_용산_160526",
+    "name": "용산역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.529774,
+    "longitude": 126.96463,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_용인중앙시장_160869",
+    "name": "용인중앙시장역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.237911,
+    "longitude": 127.209052,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -6650,8 +7730,18 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_운양_김포골드라인_749153",
-    "name": "운양역 김포골드라인",
+    "id": "st_운길산_491811",
+    "name": "운길산역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.554643,
+    "longitude": 127.310232,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_운양_749153",
+    "name": "운양역",
     "name_en": null,
     "city": "seoul",
     "latitude": 37.653775,
@@ -6670,22 +7760,32 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_운정중앙_gtx_a_433239",
-    "name": "운정중앙역 GTX-A",
-    "name_en": null,
-    "city": "seoul",
-    "latitude": 37.716127,
-    "longitude": 126.728145,
-    "mode": "station",
-    "default_radius_m": 1000
-  },
-  {
     "id": "st_원당_160549",
     "name": "원당역",
     "name_en": null,
     "city": "seoul",
     "latitude": 37.65311,
     "longitude": 126.842918,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_원덕_657670",
+    "name": "원덕역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.468782,
+    "longitude": 127.546559,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_원시_508899",
+    "name": "원시역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.302624,
+    "longitude": 126.786794,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -6800,6 +7900,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_응암_039996",
+    "name": "응암역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.598493,
+    "longitude": 126.91554,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_의왕_160575",
     "name": "의왕역",
     "name_en": null,
@@ -6870,6 +7980,36 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_이천_882312",
+    "name": "이천역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.264226,
+    "longitude": 127.442168,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_이촌_161055",
+    "name": "이촌역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.522413,
+    "longitude": 126.973544,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_이태원_160762",
+    "name": "이태원역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.534525,
+    "longitude": 126.994334,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_인덕원_160834",
     "name": "인덕원역",
     "name_en": null,
@@ -6896,6 +8036,16 @@
     "city": "seoul",
     "latitude": 37.483989,
     "longitude": 127.08413,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_임진강_302145",
+    "name": "임진강역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.888275,
+    "longitude": 126.747078,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -6950,12 +8100,22 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_장기_김포골드라인_158349",
-    "name": "장기역 김포골드라인",
+    "id": "st_장기_158349",
+    "name": "장기역",
     "name_en": null,
     "city": "seoul",
     "latitude": 37.644065,
     "longitude": 126.669079,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_장승배기_160771",
+    "name": "장승배기역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.504899,
+    "longitude": 126.939072,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -6996,6 +8156,26 @@
     "city": "seoul",
     "latitude": 37.561604,
     "longitude": 127.063704,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_전곡_266836",
+    "name": "전곡역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 38.024441,
+    "longitude": 127.071725,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_전대_에버랜드_160868",
+    "name": "전대.에버랜드역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.285413,
+    "longitude": 127.219509,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -7046,6 +8226,16 @@
     "city": "seoul",
     "latitude": 37.367327,
     "longitude": 127.108519,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_제기동_160567",
+    "name": "제기동역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.578173,
+    "longitude": 127.034949,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -7160,12 +8350,32 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_중앙_860962",
+    "name": "중앙역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.31604,
+    "longitude": 126.837959,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_중화_160775",
     "name": "중화역",
     "name_en": null,
     "city": "seoul",
     "latitude": 37.602553,
     "longitude": 127.079312,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_증미_147967",
+    "name": "증미역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.558133,
+    "longitude": 126.860637,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -7200,6 +8410,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_지평_086364",
+    "name": "지평역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.476907,
+    "longitude": 127.628906,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_지행_772093",
     "name": "지행역",
     "name_en": null,
@@ -7210,12 +8430,42 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_진위_779285",
+    "name": "진위역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.110079,
+    "longitude": 127.062356,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_진접_292812",
+    "name": "진접역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.719908,
+    "longitude": 127.203247,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_창동_160604",
     "name": "창동역",
     "name_en": null,
     "city": "seoul",
     "latitude": 37.653339,
     "longitude": 127.047645,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_창신_160671",
+    "name": "창신역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.579415,
+    "longitude": 127.015297,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -7290,6 +8540,16 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_청량리_878626",
+    "name": "청량리역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.580895,
+    "longitude": 127.047848,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_청명_110709",
     "name": "청명역",
     "name_en": null,
@@ -7310,12 +8570,32 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_청평_706601",
+    "name": "청평역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.735516,
+    "longitude": 127.426623,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_초당_161062",
     "name": "초당역",
     "name_en": null,
     "city": "seoul",
     "latitude": 37.260806,
     "longitude": 127.159469,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_초지_846401",
+    "name": "초지역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.320896,
+    "longitude": 126.805462,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -7356,16 +8636,6 @@
     "city": "seoul",
     "latitude": 37.560429,
     "longitude": 126.96304,
-    "mode": "station",
-    "default_radius_m": 1000
-  },
-  {
-    "id": "st_킨텍스_gtx_a_288805",
-    "name": "킨텍스역 GTX-A",
-    "name_en": null,
-    "city": "seoul",
-    "latitude": 37.665243,
-    "longitude": 126.748257,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -7470,8 +8740,28 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_풍무_김포골드라인_719617",
-    "name": "풍무역 김포골드라인",
+    "id": "st_평택_413092",
+    "name": "평택역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 36.990849,
+    "longitude": 127.085273,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_평택지제_160601",
+    "name": "평택지제역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.018902,
+    "longitude": 127.070514,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_풍무_719617",
+    "name": "풍무역",
     "name_en": null,
     "city": "seoul",
     "latitude": 37.612428,
@@ -7550,12 +8840,42 @@
     "default_radius_m": 1000
   },
   {
+    "id": "st_한강진_160852",
+    "name": "한강진역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.539791,
+    "longitude": 127.001765,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
     "id": "st_한국항공대_352366",
     "name": "한국항공대역",
     "name_en": null,
     "city": "seoul",
     "latitude": 37.602973,
     "longitude": 126.868322,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_한남_160736",
+    "name": "한남역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.529429,
+    "longitude": 127.009209,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_한대앞_852507",
+    "name": "한대앞역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.310207,
+    "longitude": 126.853246,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -7650,16 +8970,6 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_홍대입구_공항철도_294418",
-    "name": "홍대입구역 공항철도",
-    "name_en": null,
-    "city": "seoul",
-    "latitude": 37.557305,
-    "longitude": 126.92701,
-    "mode": "station",
-    "default_radius_m": 1000
-  },
-  {
     "id": "st_홍제_160544",
     "name": "홍제역",
     "name_en": null,
@@ -7720,12 +9030,12 @@
     "default_radius_m": 1000
   },
   {
-    "id": "st_회기_656740",
+    "id": "st_회기_160926",
     "name": "회기역",
     "name_en": null,
     "city": "seoul",
-    "latitude": 37.589922,
-    "longitude": 127.058538,
+    "latitude": 37.58953,
+    "longitude": 127.057826,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -7766,6 +9076,16 @@
     "city": "seoul",
     "latitude": 37.538606,
     "longitude": 126.962824,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_흑석_160782",
+    "name": "흑석역",
+    "name_en": null,
+    "city": "seoul",
+    "latitude": 37.509165,
+    "longitude": 126.963463,
     "mode": "station",
     "default_radius_m": 1000
   },
@@ -7816,6 +9136,16 @@
     "city": "ulsan",
     "latitude": 35.456538,
     "longitude": 129.287882,
+    "mode": "station",
+    "default_radius_m": 1000
+  },
+  {
+    "id": "st_서생_694623",
+    "name": "서생역",
+    "name_en": null,
+    "city": "ulsan",
+    "latitude": 35.346204,
+    "longitude": 129.293053,
     "mode": "station",
     "default_radius_m": 1000
   },

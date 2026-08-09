@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
-"""Harvest nationwide subway stations via Kakao Local category SW8.
+"""Harvest nationwide subway / urban-rail stations via Kakao Local SW8.
 
 Writes backend/app/data/stations.json (static catalog for GET /api/locations).
+
+The previous sparse 20km grid missed dense-area stations (e.g. 노량진역) because
+Kakao returns at most ~45 pageable hits per origin. This script uses a dense
+grid with smaller radii, then fills remaining gaps via keyword lookup against
+an OSM subway-station name list.
 
 Usage (from backend/, with KAKAO_REST_API_KEY in .env):
   source .venv/bin/activate
@@ -11,6 +16,7 @@ Usage (from backend/, with KAKAO_REST_API_KEY in .env):
 from __future__ import annotations
 
 import json
+import math
 import re
 import sys
 import time
@@ -26,63 +32,50 @@ from app.config import settings  # noqa: E402
 
 OUT = ROOT / "app" / "data" / "stations.json"
 CATEGORY_URL = "https://dapi.kakao.com/v2/local/search/category.json"
+KEYWORD_URL = "https://dapi.kakao.com/v2/local/search/keyword.json"
+OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
-# Grid centers covering major metro regions (lon, lat). Radius 20km each.
-CENTERS: list[tuple[float, float, str]] = [
-    # Seoul / capital region
-    (126.9780, 37.5665, "seoul-jung"),
-    (126.9240, 37.5560, "seoul-west"),
-    (127.0280, 37.4970, "seoul-gangnam"),
-    (127.0700, 37.5400, "seoul-east"),
-    (126.8900, 37.5200, "seoul-southwest"),
-    (127.1200, 37.5000, "seoul-southeast"),
-    (126.9800, 37.6500, "seoul-north"),
-    (127.0500, 37.6500, "seoul-northeast"),
-    (126.8300, 37.4900, "bucheon"),
-    (126.7800, 37.5000, "bucheon-west"),
-    (126.7200, 37.4500, "siheung"),
-    (126.9500, 37.4000, "anyang"),
-    (127.0300, 37.3200, "suwon"),
-    (127.1100, 37.3500, "yongin"),
-    (127.0000, 37.2700, "suwon-south"),
-    (127.2000, 37.4500, "seongnam"),
-    (127.1500, 37.4400, "bundang"),
-    (127.1300, 37.6000, "guri"),
-    (127.2000, 37.6000, "namyangju"),
-    (126.7600, 37.6000, "gimpo"),
-    (126.7800, 37.7000, "goyang"),
-    (126.9000, 37.7500, "uisan"),
-    (127.0500, 37.7400, "uiijeongbu"),
-    (127.0000, 37.8500, "yangju"),
-    (126.6200, 37.4500, "incheon"),
-    (126.7000, 37.4500, "incheon-east"),
-    (126.5300, 37.4800, "incheon-west"),
-    (126.6500, 37.3800, "incheon-south"),
+# Bounding boxes: (min_lon, min_lat, max_lon, max_lat, step_m, radius_m, label)
+# Smaller radius + denser steps beat Kakao's ~45-result ceiling in dense metros.
+REGIONS: list[tuple[float, float, float, float, int, int, str]] = [
+    # Capital region (Seoul / Gyeonggi / Incheon) — north to 소요산/동두천
+    (126.45, 37.25, 127.35, 38.05, 4500, 7000, "capital"),
     # Busan / southeast
-    (129.0756, 35.1796, "busan"),
-    (129.0400, 35.1000, "busan-south"),
-    (129.1600, 35.1600, "busan-east"),
-    (128.9800, 35.2000, "busan-west"),
-    (129.0300, 35.2400, "busan-north"),
-    (129.0800, 35.2200, "busan-dongnae"),
+    (128.85, 35.05, 129.30, 35.35, 5000, 8000, "busan"),
     # Daegu
-    (128.6014, 35.8714, "daegu"),
-    (128.5500, 35.8500, "daegu-west"),
-    (128.6500, 35.8800, "daegu-east"),
-    (128.6000, 35.8200, "daegu-south"),
+    (128.45, 35.78, 128.75, 35.95, 5000, 8000, "daegu"),
     # Gwangju
-    (126.8526, 35.1595, "gwangju"),
-    (126.9000, 35.1500, "gwangju-east"),
-    (126.8000, 35.1600, "gwangju-west"),
+    (126.75, 35.08, 127.00, 35.25, 5000, 8000, "gwangju"),
     # Daejeon
-    (127.3845, 36.3504, "daejeon"),
-    (127.4300, 36.3500, "daejeon-east"),
-    (127.3400, 36.3300, "daejeon-west"),
-    # Others with metro / light rail
-    (129.3114, 35.5384, "ulsan"),
-    (128.5830, 35.2280, "changwon"),
-    (129.3650, 36.0190, "pohang"),
+    (127.28, 36.25, 127.50, 36.45, 5000, 8000, "daejeon"),
+    # Ulsan
+    (129.20, 35.45, 129.45, 35.65, 6000, 9000, "ulsan"),
+    # Changwon / Gimhae corridor
+    (128.55, 35.15, 128.95, 35.30, 6000, 9000, "changwon"),
+    # Pohang
+    (129.30, 35.95, 129.45, 36.10, 7000, 10000, "pohang"),
 ]
+
+
+def _grid_centers(
+    min_lon: float,
+    min_lat: float,
+    max_lon: float,
+    max_lat: float,
+    step_m: int,
+) -> list[tuple[float, float]]:
+    mid_lat = (min_lat + max_lat) / 2.0
+    dlat = step_m / 111_320.0
+    dlon = step_m / (111_320.0 * max(math.cos(math.radians(mid_lat)), 0.2))
+    centers: list[tuple[float, float]] = []
+    lat = min_lat
+    while lat <= max_lat + 1e-9:
+        lon = min_lon
+        while lon <= max_lon + 1e-9:
+            centers.append((lon, lat))
+            lon += dlon
+        lat += dlat
+    return centers
 
 
 def city_from_address(address: str, place_name: str = "") -> str:
@@ -104,6 +97,8 @@ def city_from_address(address: str, place_name: str = "") -> str:
         return "ulsan"
     if "전주" in address:
         return "jeonju"
+    if "경주" in address:
+        return "gyeongju"
     if "김해" in address or "부산김해" in place_name:
         return "busan"
     # Capital-region satellites → searchable under Seoul metro UX bucket
@@ -113,7 +108,18 @@ def city_from_address(address: str, place_name: str = "") -> str:
 
 
 _LINE_SUFFIX = re.compile(
-    r"\s+(?:\d+호선|.+선|.+경전철|에버라인|자기부상철도)$"
+    r"\s+(?:"
+    r"GTX-?[A-Z]|"
+    r"김포골드라인|"
+    r"공항철도|"
+    r"자기부상철도|"
+    r"광역전철|"
+    r".+경전철|"
+    r"에버라인|"
+    r".*호선|"
+    r".+선|"
+    r".+라인"
+    r")$"
 )
 
 
@@ -121,28 +127,78 @@ def display_name(place_name: str) -> str:
     """Strip line suffixes: '강남역 신분당선' → '강남역'."""
     name = place_name.strip()
     cleaned = _LINE_SUFFIX.sub("", name).strip()
+    # Kakao sometimes returns '역명 노선명' without a line keyword we know —
+    # keep only the first token group ending with 역.
+    if " " in cleaned:
+        first, rest = cleaned.split(" ", 1)
+        if first.endswith("역") and rest:
+            cleaned = first
     return cleaned or name
+
+
+def ensure_station_suffix(name: str) -> str:
+    n = name.strip()
+    if not n:
+        return n
+    if n.endswith("역"):
+        return n
+    return f"{n}역"
 
 
 def slugify(name: str, place_id: str) -> str:
     base = display_name(name)
-    base = base.replace("역", "")
+    if base.endswith("역"):
+        base = base[:-1]
     base = re.sub(r"[^0-9A-Za-z가-힣]+", "_", base).strip("_").lower()
     if not base:
         base = place_id
     return f"st_{base}_{place_id[-6:]}"
 
 
-def harvest() -> list[dict]:
-    key = settings.kakao_rest_api_key
-    if not key:
-        raise SystemExit("KAKAO_REST_API_KEY is required")
+def _ingest_doc(by_id: dict[str, dict], doc: dict) -> None:
+    pid = str(doc.get("id") or "")
+    name = str(doc.get("place_name") or "").strip()
+    if not pid or not name:
+        return
+    # Skip non-station noise that sometimes appears under SW8/keyword.
+    # Do not filter on bare '정류장' — 서부정류장역 is a real Daegu subway stop.
+    lower = name.lower()
+    if any(tok in name for tok in ("출구", "버스정류", "주차장", "화장실")):
+        return
+    if "역" not in name and "station" not in lower:
+        return
+    try:
+        x = float(doc["x"])
+        y = float(doc["y"])
+    except (KeyError, TypeError, ValueError):
+        return
+    address = str(doc.get("address_name") or "")
+    display = ensure_station_suffix(display_name(name))
+    city = city_from_address(address, name)
+    prev = by_id.get(pid)
+    if prev is None or len(display) < len(prev["name"]):
+        by_id[pid] = {
+            "id": slugify(display, pid),
+            "name": display,
+            "name_en": None,
+            "city": city,
+            "latitude": round(y, 6),
+            "longitude": round(x, 6),
+            "mode": "station",
+            "default_radius_m": 1000,
+            "kakao_place_id": pid,
+            "address": address,
+        }
 
+
+def harvest_category(client: httpx.Client) -> dict[str, dict]:
     by_id: dict[str, dict] = {}
-    headers = {"Authorization": f"KakaoAK {key}"}
-
-    with httpx.Client(timeout=20.0, headers=headers) as client:
-        for lon, lat, label in CENTERS:
+    total_centers = 0
+    for min_lon, min_lat, max_lon, max_lat, step_m, radius_m, label in REGIONS:
+        centers = _grid_centers(min_lon, min_lat, max_lon, max_lat, step_m)
+        total_centers += len(centers)
+        print(f"{label}: {len(centers)} centers @ {step_m}m / r={radius_m}m")
+        for i, (lon, lat) in enumerate(centers, 1):
             for page in range(1, 4):  # Kakao caps pageable results ~45
                 resp = client.get(
                     CATEGORY_URL,
@@ -150,56 +206,132 @@ def harvest() -> list[dict]:
                         "category_group_code": "SW8",
                         "x": str(lon),
                         "y": str(lat),
-                        "radius": "20000",
+                        "radius": str(radius_m),
                         "size": 15,
                         "page": page,
                         "sort": "distance",
                     },
                 )
                 if resp.status_code != 200:
-                    print(f"warn {label} page {page}: HTTP {resp.status_code}")
+                    print(f"  warn {label} #{i} page {page}: HTTP {resp.status_code}")
                     break
                 data = resp.json()
                 docs = data.get("documents") or []
                 if not docs:
                     break
                 for doc in docs:
-                    pid = str(doc.get("id") or "")
-                    name = str(doc.get("place_name") or "").strip()
-                    if not pid or not name:
-                        continue
-                    try:
-                        x = float(doc["x"])
-                        y = float(doc["y"])
-                    except (KeyError, TypeError, ValueError):
-                        continue
-                    address = str(doc.get("address_name") or "")
-                    display = display_name(name)
-                    city = city_from_address(address, name)
-                    prev = by_id.get(pid)
-                    # Prefer cleaned station labels over line-suffixed Kakao names.
-                    if prev is None or len(display) < len(prev["name"]):
-                        by_id[pid] = {
-                            "id": slugify(display, pid),
-                            "name": display,
-                            "name_en": None,
-                            "city": city,
-                            "latitude": round(y, 6),
-                            "longitude": round(x, 6),
-                            "mode": "station",
-                            "default_radius_m": 1000,
-                            "kakao_place_id": pid,
-                            "address": address,
-                        }
+                    _ingest_doc(by_id, doc)
                 meta = data.get("meta") or {}
                 if meta.get("is_end", True):
                     break
-                time.sleep(0.05)
-            print(f"{label}: unique so far {len(by_id)}")
-            time.sleep(0.05)
+                time.sleep(0.03)
+            if i % 25 == 0:
+                print(f"  {label} {i}/{len(centers)} unique={len(by_id)}")
+            time.sleep(0.03)
+    print(f"category pass: {len(by_id)} unique from {total_centers} centers")
+    return by_id
 
-    # Dedupe by (normalized name, city) keeping closest-to-centroid... just by id is enough.
-    # Collapse transfer duplicates that share nearly same coords + base name.
+
+def fetch_osm_subway_names() -> list[str]:
+    """Return Hangul subway/light-rail station names from OSM (audit source)."""
+    query = """
+    [out:json][timeout:180];
+    area["ISO3166-1"="KR"][admin_level=2]->.kr;
+    (
+      node["station"="subway"](area.kr);
+      node["railway"="station"]["subway"="yes"](area.kr);
+      node["railway"="station"]["station"="subway"](area.kr);
+      way["station"="subway"](area.kr);
+      node["railway"="station"]["name"~"역$"](area.kr);
+    );
+    out tags center;
+    """
+    try:
+        with httpx.Client(timeout=200.0) as client:
+            resp = client.post(OVERPASS_URL, data={"data": query})
+            if resp.status_code != 200:
+                print(f"OSM overpass HTTP {resp.status_code}; skipping gap fill")
+                return []
+            data = resp.json()
+    except Exception as exc:  # noqa: BLE001
+        print(f"OSM overpass failed: {type(exc).__name__}; skipping gap fill")
+        return []
+
+    names: set[str] = set()
+    for el in data.get("elements") or []:
+        tags = el.get("tags") or {}
+        name = str(tags.get("name") or tags.get("name:ko") or "").strip()
+        if not name:
+            continue
+        # Prefer urban rail; drop long-distance-only KTX-style if obvious.
+        railway = str(tags.get("railway") or "")
+        station = str(tags.get("station") or "")
+        subway = str(tags.get("subway") or "")
+        if station != "subway" and subway != "yes":
+            # Keep *역 names that look like metro stops; drop 정류장 etc.
+            if not name.endswith("역"):
+                continue
+            if any(x in name for x in ("버스", "정류장", "화물", "조차")):
+                continue
+            if railway not in {"station", "halt", ""}:
+                continue
+        names.add(ensure_station_suffix(display_name(name)))
+    print(f"OSM subway-ish names: {len(names)}")
+    return sorted(names)
+
+
+def fill_gaps_by_keyword(
+    client: httpx.Client,
+    by_id: dict[str, dict],
+    osm_names: list[str],
+) -> None:
+    have = {re.sub(r"\s+", "", s["name"]) for s in by_id.values()}
+    missing = [n for n in osm_names if re.sub(r"\s+", "", n) not in have]
+    print(f"keyword gap fill: {len(missing)} OSM names not in catalog")
+    added = 0
+    for i, name in enumerate(missing, 1):
+        resp = client.get(
+            KEYWORD_URL,
+            params={
+                "query": name,
+                "category_group_code": "SW8",
+                "size": 5,
+                "page": 1,
+            },
+        )
+        if resp.status_code != 200:
+            print(f"  warn keyword {name}: HTTP {resp.status_code}")
+            time.sleep(0.1)
+            continue
+        docs = (resp.json().get("documents") or [])
+        # Prefer exact / near-exact display name match.
+        target = re.sub(r"\s+", "", name)
+        chosen = None
+        for doc in docs:
+            disp = re.sub(r"\s+", "", ensure_station_suffix(display_name(str(doc.get("place_name") or ""))))
+            if disp == target or disp.startswith(target) or target.startswith(disp):
+                chosen = doc
+                break
+        if chosen is None and docs:
+            # Fall back to first SW8 hit only if names share the bare stem.
+            stem = target.replace("역", "")
+            for doc in docs:
+                disp = ensure_station_suffix(display_name(str(doc.get("place_name") or "")))
+                if stem and stem in disp.replace(" ", ""):
+                    chosen = doc
+                    break
+        if chosen is not None:
+            before = len(by_id)
+            _ingest_doc(by_id, chosen)
+            if len(by_id) > before:
+                added += 1
+        if i % 50 == 0:
+            print(f"  keyword {i}/{len(missing)} added={added} unique={len(by_id)}")
+        time.sleep(0.05)
+    print(f"keyword gap fill done: +{added} (unique now {len(by_id)})")
+
+
+def collapse(by_id: dict[str, dict]) -> list[dict]:
     items = list(by_id.values())
     items.sort(key=lambda s: (s["city"], s["name"], s["kakao_place_id"]))
 
@@ -213,13 +345,14 @@ def harvest() -> list[dict]:
             seen_keys[key] = item
             collapsed.append(item)
             continue
-        # Prefer shorter cleaned name
         if len(item["name"]) < len(existing["name"]):
             idx = collapsed.index(existing)
             collapsed[idx] = item
             seen_keys[key] = item
+    return collapsed
 
-    # Strip harvest-only fields from public catalog
+
+def to_public(collapsed: list[dict]) -> list[dict]:
     public = []
     for item in collapsed:
         public.append(
@@ -238,6 +371,46 @@ def harvest() -> list[dict]:
     return public
 
 
+def harvest() -> list[dict]:
+    key = settings.kakao_rest_api_key
+    if not key:
+        raise SystemExit("KAKAO_REST_API_KEY is required")
+
+    headers = {"Authorization": f"KakaoAK {key}"}
+    with httpx.Client(timeout=30.0, headers=headers) as client:
+        by_id = harvest_category(client)
+        osm_names = fetch_osm_subway_names()
+        if osm_names:
+            fill_gaps_by_keyword(client, by_id, osm_names)
+        # Hard guarantee for known gaps even if OSM / grid harvest misses them.
+        force = [
+            "노량진역",
+            "지행역",
+            "동두천중앙역",
+            "보산역",
+            "동두천역",
+            "소요산역",
+            "서부정류장역",
+            "걸포북변역",
+            "구래역",
+            "사우역",
+            "영종역",
+            "운서역",
+            "청라국제도시역",
+            "공항화물청사역",
+            "인천공항1터미널역",
+            "인천공항2터미널역",
+            "동탄역",
+        ]
+        have = {re.sub(r"\s+", "", s["name"]) for s in by_id.values()}
+        missing_force = [n for n in force if re.sub(r"\s+", "", n) not in have]
+        if missing_force:
+            print(f"forcing keyword lookup for {len(missing_force)} must-have stations")
+            fill_gaps_by_keyword(client, by_id, missing_force)
+
+    return to_public(collapse(by_id))
+
+
 def main() -> None:
     stations = harvest()
     OUT.parent.mkdir(parents=True, exist_ok=True)
@@ -251,6 +424,22 @@ def main() -> None:
     print(f"Wrote {len(stations)} stations → {OUT}")
     for city, n in sorted(by_city.items()):
         print(f"  {city}: {n}")
+    must = [
+        "노량진역",
+        "합정역",
+        "강남역",
+        "서면역",
+        "동대구역",
+        "대전역",
+        "종합운동장역",
+        "소요산역",
+        "서부정류장역",
+        "걸포북변역",
+        "인천공항1터미널역",
+    ]
+    names = {s["name"] for s in stations}
+    for m in must:
+        print(f"  {'OK' if m in names else 'MISSING'}: {m}")
 
 
 if __name__ == "__main__":
