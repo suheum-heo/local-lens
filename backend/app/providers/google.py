@@ -262,40 +262,15 @@ class LiveGooglePlacesProvider(GooglePlacesProvider):
                 retryable=True,
             ) from exc
 
-        if resp.status_code in {401, 403}:
-            raise ProviderAPIError(
-                "Google Places API authentication failed. Check GOOGLE_PLACES_API_KEY "
-                "and Places API (New) enablement.",
-                provider="google",
-                status_code=502,
-            )
-        if resp.status_code == 429:
-            raise ProviderAPIError(
-                "Google Places API quota or rate limit exceeded. Please try again later.",
-                provider="google",
-                status_code=429,
-                retryable=True,
-            )
         if resp.status_code == 404:
             return {}
         if resp.status_code >= 400:
-            logger.warning("Google Places HTTP %s", resp.status_code)
-            # Prefer status-based messages; never forward raw error payloads.
-            err_status = _extract_error_status(resp)
-            if err_status == "RESOURCE_EXHAUSTED":
-                raise ProviderAPIError(
-                    "Google Places API quota or rate limit exceeded. Please try again later.",
-                    provider="google",
-                    status_code=429,
-                    retryable=True,
-                )
-            raise ProviderAPIError(
-                "Google Places API returned an error. Check GOOGLE_PLACES_API_KEY "
-                "and Places API (New) enablement.",
-                provider="google",
-                status_code=502,
-                retryable=resp.status_code >= 500,
+            logger.warning(
+                "Google Places HTTP %s status=%s",
+                resp.status_code,
+                _extract_error_status(resp) or "-",
             )
+            raise _provider_error_for_google_response(resp)
 
         if not resp.content:
             return {}
@@ -318,18 +293,107 @@ class LiveGooglePlacesProvider(GooglePlacesProvider):
         return data
 
 
-def _extract_error_status(resp: httpx.Response) -> str | None:
+def _extract_error_payload(resp: httpx.Response) -> dict[str, Any]:
     try:
         payload = resp.json()
     except ValueError:
-        return None
+        return {}
     if not isinstance(payload, dict):
-        return None
+        return {}
     error = payload.get("error")
-    if isinstance(error, dict):
-        status = error.get("status")
-        return str(status) if status else None
-    return None
+    return error if isinstance(error, dict) else {}
+
+
+def _extract_error_status(resp: httpx.Response) -> str | None:
+    status = _extract_error_payload(resp).get("status")
+    return str(status) if status else None
+
+
+def _extract_error_message(resp: httpx.Response) -> str:
+    message = _extract_error_payload(resp).get("message")
+    return str(message).lower() if message else ""
+
+
+def _provider_error_for_google_response(resp: httpx.Response) -> ProviderAPIError:
+    """Map Google HTTP errors to safe, actionable ProviderAPIError messages.
+
+    Never forwards raw Google payloads (may include project ids / hints).
+    """
+    err_status = (_extract_error_status(resp) or "").upper()
+    err_message = _extract_error_message(resp)
+    code = resp.status_code
+
+    if code == 429 or err_status == "RESOURCE_EXHAUSTED":
+        return ProviderAPIError(
+            "Google Places API quota or rate limit exceeded. Please try again later.",
+            provider="google",
+            status_code=429,
+            retryable=True,
+        )
+
+    # Invalid keys often arrive as 400 INVALID_ARGUMENT, not only 401/403.
+    key_mentions = "api key" in err_message or "apikey" in err_message.replace(" ", "")
+    key_invalid = (
+        "api key not valid" in err_message
+        or "api_key_invalid" in err_message
+        or "missing a valid api key" in err_message
+        or (
+            err_status in {"UNAUTHENTICATED", "INVALID_ARGUMENT"} and key_mentions
+        )
+    )
+    api_disabled = (
+        "has not been used" in err_message
+        or "not been enabled" in err_message
+        or "is disabled" in err_message
+        or "not enabled" in err_message
+    )
+    billing = "billing" in err_message
+    restricted = (
+        "blocked" in err_message
+        or "referer" in err_message
+        or "ip address" in err_message
+        or "requests from this" in err_message
+    )
+
+    if code in {401, 403} or key_invalid or api_disabled or billing or restricted:
+        if billing:
+            msg = (
+                "Google Places API billing is not enabled for this project. "
+                "Enable billing in Google Cloud, then retry."
+            )
+        elif api_disabled:
+            msg = (
+                "Google Places API (New) is not enabled for this API key's project. "
+                "Enable Places API (New) in Google Cloud Console."
+            )
+        elif restricted:
+            msg = (
+                "Google Places API key is restricted from this server. "
+                "Use an unrestricted server key or allow Render egress IPs."
+            )
+        elif key_invalid or code == 401:
+            msg = (
+                "Google Places API authentication failed. "
+                "Check GOOGLE_PLACES_API_KEY is a valid server key."
+            )
+        else:
+            msg = (
+                "Google Places API authentication failed. Check GOOGLE_PLACES_API_KEY "
+                "and Places API (New) enablement."
+            )
+        return ProviderAPIError(
+            msg,
+            provider="google",
+            status_code=502,
+        )
+
+    return ProviderAPIError(
+        "Google Places API returned an error. Check GOOGLE_PLACES_API_KEY "
+        "and Places API (New) enablement.",
+        provider="google",
+        status_code=502,
+        retryable=code >= 500,
+    )
 
 
 def _has_scoring_fields(place: GooglePlaceData) -> bool:

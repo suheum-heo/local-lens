@@ -179,14 +179,26 @@ Also:
 | Condition | Result |
 |-----------|--------|
 | Missing live credentials | `ProviderConfigError` → HTTP 503 |
-| Kakao 401/403 | Safe message; HTTP 502 |
-| Google 401/403 | Auth failure message; HTTP 502 |
-| Kakao/Google rate limit (429) | HTTP 429, retryable |
-| Timeout / transport failure | HTTP 504/502, retryable |
+| Kakao 401/403 | Safe message; HTTP 502 (search fails — Kakao is required for discovery) |
+| Google 401/403 / invalid key / API disabled / billing | Safe actionable message; **soft-fail** — Kakao results returned, Global unmatched, notice added |
+| Kakao rate limit (429) | HTTP 429, retryable |
+| Google rate limit (429) | Soft-fail remaining Google matches in that request; Kakao results still returned |
+| Timeout / transport failure (Kakao) | HTTP 504/502, retryable |
+| Timeout / transport failure (Google) | Soft-fail matching for that request |
 | Empty Text Search / no confident match | Restaurant kept; Global = `unmatched` |
 | Few Google reviews | Global = `insufficient_data` (score `null`, not 0) |
 
 API keys and raw upstream exception bodies are never returned to the client.
+
+### Fixing Google auth / quota on Render
+
+Production (`PROVIDER_MODE=live`) needs a valid `GOOGLE_PLACES_API_KEY` on the Render service:
+
+1. Google Cloud Console → enable **Places API (New)** (not only legacy Places)
+2. Enable **billing** on the project (required for Places API New)
+3. Create a **server** API key (no HTTP-referrer restriction; IP allowlist only if you pin Render egress)
+4. Set Render env `GOOGLE_PLACES_API_KEY` and redeploy `local-lens-api`
+5. If searches return quota notices, raise the Places API (New) quota or wait for the daily reset
 
 ## Limitations
 

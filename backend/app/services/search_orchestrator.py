@@ -3,21 +3,24 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 
 from app.config import settings
 from app.domain.contracts import SearchMeta, SearchRequest, SearchResponse
-from app.domain.enums import RatingCoverage
+from app.domain.enums import MatchConfidenceLevel, RatingCoverage
 from app.domain.locations import SearchArea
 from app.domain.models import PlaceMatchResult, Restaurant
 from app.domain.rating_coverage import classify_rating_coverage
 from app.matching.place_matcher import DefaultPlaceMatcher, PlaceMatcher
 from app.normalization.restaurant import NormalizedCandidate, normalize_and_dedupe
 from app.providers.base import GooglePlacesProvider, KakaoLocalProvider
-from app.providers.errors import ApiCallCounter
+from app.providers.errors import ApiCallCounter, ProviderAPIError
 from app.providers.factory import get_google_provider, get_kakao_provider
 from app.providers.kakao_place_enricher import EnrichmentStats, KakaoPlaceEnricher
 from app.providers.place_photos import build_photo_proxy_url
 from app.scoring.engine import ScoringEngine, SimpleScoringEngine
+
+logger = logging.getLogger(__name__)
 
 # Google Text Search is the other major latency driver; bound concurrency
 # to stay under typical rate limits while overlapping with Kakao enrichment.
@@ -73,9 +76,10 @@ class SearchOrchestrator:
             self._enrich_candidates(candidates)
         )
         matches_task = asyncio.create_task(self._match_candidates(candidates))
-        enrichment_stats, matches = await asyncio.gather(
+        enrichment_stats, match_bundle = await asyncio.gather(
             enrichment_task, matches_task
         )
+        matches, google_degrade_notice = match_bundle
 
         restaurants: list[Restaurant] = []
         for candidate, match in zip(candidates, matches, strict=True):
@@ -115,6 +119,7 @@ class SearchOrchestrator:
             settings.provider_mode,
             enrichment_stats=enrichment_stats,
             enrichment_enabled=self._enable_kakao_enrichment,
+            google_degrade_notice=google_degrade_notice,
         )
 
         return SearchResponse(
@@ -142,22 +147,60 @@ class SearchOrchestrator:
 
     async def _match_candidates(
         self, candidates: list[NormalizedCandidate]
-    ) -> list[PlaceMatchResult]:
+    ) -> tuple[list[PlaceMatchResult], str | None]:
+        """Match Kakao places to Google.
+
+        Google upstream failures soft-fail: Kakao discovery results are still
+        returned with Global = unmatched, plus a notice. Auth/quota errors stop
+        further Google calls in this request to avoid a stampede.
+        """
         if not candidates:
-            return []
+            return [], None
         sem = asyncio.Semaphore(self._google_match_concurrency)
+        skip_google = asyncio.Event()
+        degrade_notice: list[str] = []
 
         async def _one(candidate: NormalizedCandidate) -> PlaceMatchResult:
-            async with sem:
-                return await self._matcher.match(candidate.kakao)
+            if skip_google.is_set():
+                return _unmatched_google(
+                    "Google Places matching skipped after an upstream failure."
+                )
+            try:
+                async with sem:
+                    if skip_google.is_set():
+                        return _unmatched_google(
+                            "Google Places matching skipped after an upstream failure."
+                        )
+                    return await self._matcher.match(candidate.kakao)
+            except ProviderAPIError as exc:
+                if not skip_google.is_set():
+                    skip_google.set()
+                    degrade_notice.append(exc.message)
+                    logger.warning(
+                        "Google Places match soft-failed (%s): %s",
+                        exc.status_code,
+                        exc.message,
+                    )
+                return _unmatched_google(exc.message)
 
-        return list(await asyncio.gather(*[_one(c) for c in candidates]))
+        matches = list(await asyncio.gather(*[_one(c) for c in candidates]))
+        return matches, (degrade_notice[0] if degrade_notice else None)
 
 
 def create_search_orchestrator() -> SearchOrchestrator:
     """Build a request-scoped orchestrator (fresh provider caches + call counter)."""
     counter = ApiCallCounter()
     return SearchOrchestrator(counter=counter)
+
+
+def _unmatched_google(reason: str) -> PlaceMatchResult:
+    return PlaceMatchResult(
+        confidence=0.0,
+        confidence_level=MatchConfidenceLevel.NONE,
+        matched=False,
+        google=None,
+        reason=reason,
+    )
 
 
 def _rank_key(r: Restaurant) -> tuple[float, float, float]:
@@ -174,6 +217,7 @@ def _build_notices(
     *,
     enrichment_stats: EnrichmentStats | None = None,
     enrichment_enabled: bool = False,
+    google_degrade_notice: str | None = None,
 ) -> list[str]:
     notices: list[str] = []
     insufficient = sum(
@@ -186,6 +230,13 @@ def _build_notices(
     )
     kakao_ratings = sum(1 for r in restaurants if r.kakao.rating is not None)
     stats = enrichment_stats or EnrichmentStats()
+
+    if google_degrade_notice:
+        notices.append(
+            "Google Places 매칭을 일시적으로 건너뜁니다 — "
+            f"{google_degrade_notice} "
+            "카카오 검색 결과는 그대로 표시하며 Global Score/사진은 비워 둡니다."
+        )
 
     if enrichment_enabled and stats.attempted > 0:
         notices.append(
@@ -214,7 +265,7 @@ def _build_notices(
             f"{insufficient}곳의 식당은 Google 리뷰 데이터가 충분하지 않아 "
             "Global Score를 계산하지 않았습니다."
         )
-    if unmatched:
+    if unmatched and not google_degrade_notice:
         notices.append(
             f"{unmatched}곳의 식당은 Google 장소와 매칭되지 않았거나 "
             "매칭 신뢰도가 낮아 Global Score를 표시하지 않습니다."

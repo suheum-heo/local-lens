@@ -347,6 +347,72 @@ async def test_live_google_auth_failure():
 
 
 @pytest.mark.asyncio
+async def test_live_google_api_disabled_message():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            403,
+            json={
+                "error": {
+                    "status": "PERMISSION_DENIED",
+                    "message": (
+                        "Places API (New) has not been used in project 123 before "
+                        "or it is disabled. Enable it by visiting…"
+                    ),
+                }
+            },
+        )
+
+    provider = LiveGooglePlacesProvider(
+        api_key="test-google-key",
+        transport=httpx.MockTransport(handler),
+    )
+    with pytest.raises(ProviderAPIError) as exc:
+        await provider.search_places("합정 맛집", 37.55, 126.91)
+    assert "Places API (New) is not enabled" in exc.value.message
+    assert "123" not in exc.value.message
+
+
+@pytest.mark.asyncio
+async def test_live_google_invalid_key_as_400():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            400,
+            json={
+                "error": {
+                    "status": "INVALID_ARGUMENT",
+                    "message": "API key not valid. Please pass a valid API key.",
+                }
+            },
+        )
+
+    provider = LiveGooglePlacesProvider(
+        api_key="test-google-key",
+        transport=httpx.MockTransport(handler),
+    )
+    with pytest.raises(ProviderAPIError) as exc:
+        await provider.search_places("합정 맛집", 37.55, 126.91)
+    assert "valid server key" in exc.value.message
+
+
+@pytest.mark.asyncio
+async def test_live_google_quota_as_403_resource_exhausted():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            403,
+            json={"error": {"status": "RESOURCE_EXHAUSTED", "message": "quota"}},
+        )
+
+    provider = LiveGooglePlacesProvider(
+        api_key="test-google-key",
+        transport=httpx.MockTransport(handler),
+    )
+    with pytest.raises(ProviderAPIError) as exc:
+        await provider.search_places("합정 맛집", 37.55, 126.91)
+    assert exc.value.status_code == 429
+    assert exc.value.retryable
+
+
+@pytest.mark.asyncio
 async def test_live_google_quota_rate_limit():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(

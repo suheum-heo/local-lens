@@ -207,3 +207,96 @@ async def test_search_orchestrator_mock():
             "google_only",
             "none",
         }
+
+
+@pytest.mark.asyncio
+async def test_search_orchestrator_soft_fails_google_auth():
+    """Kakao results must still return when Google Places auth fails."""
+    from app.domain.contracts import SearchRequest
+    from app.domain.enums import City, LocationMode
+    from app.domain.locations import SearchArea, StationLocation
+    from app.domain.models import KakaoPlaceData
+    from app.providers.base import GooglePlacesProvider, KakaoLocalProvider
+    from app.providers.errors import ProviderAPIError
+    from app.services.search_orchestrator import SearchOrchestrator
+
+    class StubKakao(KakaoLocalProvider):
+        async def search_restaurants(
+            self, area: SearchArea, query: str
+        ) -> list[KakaoPlaceData]:
+            del area, query
+            return [
+                KakaoPlaceData(
+                    kakao_place_id="k-soft",
+                    name="합정 맛집",
+                    address="서울 마포구",
+                    road_address="서울 마포구 양화로 10",
+                    latitude=37.5501,
+                    longitude=126.9145,
+                    category="음식점 > 한식",
+                    place_url="https://place.map.kakao.com/k-soft",
+                    rating=4.4,
+                    review_count=50,
+                )
+            ]
+
+    class BoomGoogle(GooglePlacesProvider):
+        async def search_places(
+            self,
+            name: str,
+            latitude: float,
+            longitude: float,
+            address: str | None = None,
+            *,
+            included_type: str = "restaurant",
+        ) -> list[GooglePlaceData]:
+            del name, latitude, longitude, address, included_type
+            raise ProviderAPIError(
+                "Google Places API authentication failed. Check GOOGLE_PLACES_API_KEY "
+                "and Places API (New) enablement.",
+                provider="google",
+                status_code=502,
+            )
+
+        async def get_place_details(self, google_place_id: str) -> GooglePlaceData | None:
+            del google_place_id
+            return None
+
+    orch = SearchOrchestrator(
+        kakao=StubKakao(),
+        google=BoomGoogle(),
+        enable_kakao_enrichment=False,
+        google_match_concurrency=2,
+    )
+    resp = await orch.search(
+        SearchRequest(
+            city=City.SEOUL,
+            mode=LocationMode.STATION,
+            locations=[
+                StationLocation(
+                    station_id="st_hapjeong",
+                    station_name="합정역",
+                    city=City.SEOUL,
+                    latitude=37.5496,
+                    longitude=126.9139,
+                )
+            ],
+            query="맛집",
+        )
+    )
+    assert resp.meta.result_count == 1
+    assert resp.results[0].match.matched is False
+    assert resp.results[0].scores.global_.availability == DataAvailability.UNMATCHED
+    assert any("Google Places" in n for n in resp.notices)
+
+
+def test_settings_strips_api_key_whitespace():
+    from app.config import Settings
+
+    s = Settings(
+        provider_mode="mock",
+        kakao_rest_api_key="  kakao-key  ",
+        google_places_api_key="\ngoogle-key\n",
+    )
+    assert s.kakao_rest_api_key == "kakao-key"
+    assert s.google_places_api_key == "google-key"
