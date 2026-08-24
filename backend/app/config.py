@@ -1,7 +1,9 @@
 """Application configuration loaded from environment variables."""
 
 from functools import lru_cache
+from typing import Any
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,6 +23,13 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+asyncpg://locallens:locallens@localhost:5432/locallens"
     )
+
+    @field_validator("kakao_rest_api_key", "google_places_api_key", mode="before")
+    @classmethod
+    def strip_api_keys(cls, value: Any) -> str:
+        if value is None:
+            return ""
+        return str(value).strip()
 
     @property
     def cors_origins_list(self) -> list[str]:
